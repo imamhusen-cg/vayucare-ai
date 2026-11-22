@@ -45,6 +45,11 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Internal server error' });
 });
 
-app.listen(PORT, () => {
-  console.log(`VayuCare API server running on http://localhost:${PORT}`);
-});
+// Only listen directly when not running in a serverless environment like Vercel
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`VayuCare API server running on http://localhost:${PORT}`);
+  });
+}
+
+module.exports = app;
