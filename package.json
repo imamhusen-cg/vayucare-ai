@@ -8,6 +8,8 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test": "vitest run",
+    "test:server": "node --test server/test/api.test.js",
+    "test:all": "vitest run && node --test server/test/api.test.js",
     "test:watch": "vitest",
     "server": "node server/index.js"
   },
