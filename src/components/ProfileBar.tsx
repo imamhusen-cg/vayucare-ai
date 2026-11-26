@@ -11,6 +11,7 @@ import { getAQIBadgeClass, isMetroCity } from '../utils/aqi';
 import { calculateExposureMetrics, normalizeCommuteMode } from '../utils/exposure';
 import { useAnimatedNumber } from '../hooks/useAnimatedNumber';
 import type { UserProfile, StationSearchResult, CommuteMode } from '../types';
+import type { LucideIcon } from 'lucide-react';
 
 const POPULAR_INDIAN_CITIES = [
   'Delhi', 'Mumbai', 'Bengaluru', 'Kolkata', 'Hyderabad',
@@ -40,7 +41,7 @@ export function ProfileBar() {
   const animatedCigsBefore = useAnimatedNumber(exposure.cigsBefore, 350, 1);
   const animatedCigsAfter = useAnimatedNumber(exposure.cigsAfter, 350, 1);
 
-  const commuteOptions: { mode: CommuteMode; label: string; icon: any; shortDesc: string }[] = [
+  const commuteOptions: { mode: CommuteMode; label: string; icon: LucideIcon; shortDesc: string }[] = [
     { mode: 'Cycle', label: 'Cycle', icon: Bike, shortDesc: 'High exertion' },
     { mode: 'Auto/Open Transit', label: 'Auto / Open', icon: Bus, shortDesc: 'Roadside air' },
     { mode: 'Car with AC', label: 'Car with AC', icon: Car, shortDesc: 'Cabin filter' },

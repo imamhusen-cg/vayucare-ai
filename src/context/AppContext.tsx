@@ -153,8 +153,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               setIsLoadingGuidance(false);
             }
             resolve();
-          } catch (err: any) {
-            setAqiError(err.message || 'Could not fetch air quality for your location.');
+          } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : 'Could not fetch air quality for your location.';
+            setAqiError(message);
             reject(err);
           } finally {
             setIsLocating(false);

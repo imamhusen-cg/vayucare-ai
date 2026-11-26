@@ -2,6 +2,7 @@ const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '.env') });
 const express = require('express');
 const cors = require('cors');
+const compression = require('compression');
 const rateLimit = require('express-rate-limit');
 const aqiRouter = require('./routes/aqi');
 const geminiRouter = require('./routes/gemini');
@@ -10,6 +11,7 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 // Middleware
+app.use(compression());
 app.use(cors({
   origin: process.env.ALLOWED_ORIGIN || true,
   methods: ['GET', 'POST'],
@@ -45,8 +47,8 @@ app.use((err, req, res, next) => {
   res.status(500).json({ error: 'Internal server error' });
 });
 
-// Only listen directly when not running in a serverless environment like Vercel
-if (!process.env.VERCEL) {
+// Only listen directly when run directly (not when imported in tests or serverless)
+if (require.main === module && !process.env.VERCEL) {
   app.listen(PORT, () => {
     console.log(`VayuCare API server running on http://localhost:${PORT}`);
   });

@@ -9,24 +9,26 @@ export function useAnimatedNumber(
   duration: number = 350,
   decimals: number = 0
 ): number {
-  const [displayValue, setDisplayValue] = useState<number>(target);
-  const startValRef = useRef<number>(target);
+  const safeTarget = Number.isFinite(target) ? target : 0;
+  const [displayValue, setDisplayValue] = useState<number>(safeTarget);
+  const currentValRef = useRef<number>(safeTarget);
   const startTimeRef = useRef<number | null>(null);
   const animFrameRef = useRef<number | null>(null);
-  const targetRef = useRef<number>(target);
 
   useEffect(() => {
-    // If target didn't change, do nothing
-    if (target === targetRef.current && displayValue === target) {
+    if (!Number.isFinite(target)) return;
+
+    const startVal = currentValRef.current;
+    if (startVal === target) return;
+
+    if (duration <= 0) {
+      currentValRef.current = target;
+      setDisplayValue(target);
       return;
     }
 
-    const startVal = displayValue;
-    startValRef.current = startVal;
-    targetRef.current = target;
     startTimeRef.current = null;
-
-    if (startVal === target) return;
+    const factor = Math.pow(10, decimals);
 
     const animate = (timestamp: number) => {
       if (startTimeRef.current === null) {
@@ -34,26 +36,31 @@ export function useAnimatedNumber(
       }
       const elapsed = timestamp - startTimeRef.current;
       const progress = Math.min(elapsed / duration, 1);
-      // easeOutCubic: 1 - (1 - t)^3
       const ease = 1 - Math.pow(1 - progress, 3);
       const current = startVal + (target - startVal) * ease;
-
-      const factor = Math.pow(10, decimals);
       const rounded = Math.round(current * factor) / factor;
-      setDisplayValue(rounded);
+
+      if (rounded !== currentValRef.current) {
+        currentValRef.current = rounded;
+        setDisplayValue(rounded);
+      }
 
       if (progress < 1) {
         animFrameRef.current = requestAnimationFrame(animate);
       } else {
-        setDisplayValue(target);
+        if (currentValRef.current !== target) {
+          currentValRef.current = target;
+          setDisplayValue(target);
+        }
       }
     };
 
     animFrameRef.current = requestAnimationFrame(animate);
 
     return () => {
-      if (animFrameRef.current) {
+      if (animFrameRef.current !== null) {
         cancelAnimationFrame(animFrameRef.current);
+        animFrameRef.current = null;
       }
     };
   }, [target, duration, decimals]);

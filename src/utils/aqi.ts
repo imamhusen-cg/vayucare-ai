@@ -1,4 +1,4 @@
-import type { AQICategory, AlertLevel } from '../types';
+import type { AQICategory } from '../types';
 
 /**
  * Official Central Pollution Control Board (CPCB) National Air Quality Index (IND-AQI)
@@ -11,7 +11,7 @@ import type { AQICategory, AlertLevel } from '../types';
  * 401–500: Severe (Maroon / Dark Red)
  */
 export function getCPCBScaleCategory(aqi: number): AQICategory {
-  if (isNaN(aqi) || aqi === null) return 'Moderate';
+  if (!Number.isFinite(aqi) || aqi === null) return 'Moderate';
   if (aqi <= 50) return 'Good';
   if (aqi <= 100) return 'Satisfactory';
   if (aqi <= 200) return 'Moderate';
@@ -21,6 +21,7 @@ export function getCPCBScaleCategory(aqi: number): AQICategory {
 }
 
 export function getAQIColor(aqi: number): string {
+  if (!Number.isFinite(aqi)) return 'text-[#eab308]';
   if (aqi <= 50) return 'text-[#4cc38a]'; // Good (0–50)
   if (aqi <= 100) return 'text-[#84cc16]'; // Satisfactory (51–100)
   if (aqi <= 200) return 'text-[#eab308]'; // Moderate (101–200)
@@ -30,16 +31,13 @@ export function getAQIColor(aqi: number): string {
 }
 
 export function getAQIBadgeClass(aqi: number): string {
+  if (!Number.isFinite(aqi)) return 'text-[#eab308] bg-[#eab308]/10 border-[#eab308]/20';
   if (aqi <= 50) return 'text-[#4cc38a] bg-[#4cc38a]/10 border-[#4cc38a]/20';
   if (aqi <= 100) return 'text-[#84cc16] bg-[#84cc16]/10 border-[#84cc16]/20';
   if (aqi <= 200) return 'text-[#eab308] bg-[#eab308]/10 border-[#eab308]/20';
   if (aqi <= 300) return 'text-[#f97316] bg-[#f97316]/10 border-[#f97316]/20';
   if (aqi <= 400) return 'text-[#ef4444] bg-[#ef4444]/10 border-[#ef4444]/20';
   return 'text-[#f87171] bg-[#991b1b]/20 border-[#991b1b]/35';
-}
-
-export function getAQIBgColor(_aqi: number): string {
-  return 'bg-ink-900 border-ink-100/[0.07]';
 }
 
 /**
