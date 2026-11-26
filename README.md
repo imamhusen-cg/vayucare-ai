@@ -12,22 +12,6 @@
 
 Built with **React 18, Vite 5, Strict TypeScript, Tailwind CSS, Node.js/Express, Central Pollution Control Board (CPCB) telemetry via WAQI, and Google Gemini 1.5 Flash**.
 
----
-
-## 🏆 Hack2skill AI Evaluation Scorecard Architecture
-
-VayuCare AI is engineered to achieve **98–100 / 100** across all six dimensions of the Hack2skill AI Evaluation criteria:
-
-| Evaluation Dimension | Engineered Target | Technical Implementation & Verification |
-| :--- | :---: | :--- |
-| **Testing** | **100 / 100** | **60 automated tests across 10 suites** (`vitest` + `node:test`). Tests CPCB breakpoints, inhaled dose physics, HEPA mitigation math, RAF animation hooks, components, API endpoints, and GitHub Actions CI runner (`.github/workflows/ci.yml`). |
-| **Efficiency** | **98+ / 100** | Dual-layer bounded **LRU TTL In-Memory Caching** (5m for air telemetry, 15m for Gemini guidance) delivering **<2ms response times** on repeat queries. Rollup `manualChunks` code splitting (`vendor-react`, `vendor-ui`) shrinks initial bundle to **29.1 KB gzipped**. |
-| **Code Quality** | **98+ / 100** | **Zero `any` types**. 100% strictly typed TypeScript, modular architecture (`ExposureSummaryCard`, `StationSearch`, `GuidanceSkeleton`), single responsibility principle, and comprehensive JSDoc documentation. |
-| **Security** | **98–100 / 100** | Zero client-side API key exposure. Backend proxy handles all third-party requests, rate limiting (60 req/min), CORS lockdown, and strict XSS/injection sanitization. |
-| **Accessibility** | **98+ / 100** | WCAG 2.1 AA compliant color contrast tokens on dark palette, semantic HTML5 structure, ARIA landmarks, visible keyboard focus rings (`focus-visible:ring-emerald-400`), and zero Cumulative Layout Shift (CLS). |
-| **Problem Alignment**| **99–100 / 100** | Grounded strictly in official Indian CPCB IND-AQI breakpoints, transit-aware exposure calculations, vulnerable group safeguards (children, seniors, asthma/COPD), and dual-language community bulletins. |
-
----
 
 ## 🔬 Scientific & Algorithmic Foundations
 
