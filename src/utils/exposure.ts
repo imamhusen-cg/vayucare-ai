@@ -1,5 +1,5 @@
 import type { UserProfile, AQIData } from '../types';
-import { aqiToCPCBPM25, enforceParticulatePhysics, isMetroCity } from './aqi';
+import { enforceParticulatePhysics, isMetroCity } from './aqi';
 
 export interface ExposureMetrics {
   ambientPM25: number;

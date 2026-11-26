@@ -15,7 +15,14 @@ export function PresetBanner() {
           </span>
           <div className="flex items-center gap-1.5">
             {DEMO_PRESETS.map(preset => {
-              const isSelected = profile.city === preset.city && profile.hasKids === preset.profile.hasKids;
+              const p = preset.profile;
+              const isSelected =
+                profile.city === p.city &&
+                profile.hasKids === p.hasKids &&
+                profile.hasSenior === p.hasSenior &&
+                profile.hasRespiratoryIssues === p.hasRespiratoryIssues &&
+                profile.commuteMode === p.commuteMode &&
+                profile.hasAirPurifier === p.hasAirPurifier;
               const Icon = preset.icon === 'users' ? Users : preset.icon === 'train' ? TrainFront : Bike;
 
               return (

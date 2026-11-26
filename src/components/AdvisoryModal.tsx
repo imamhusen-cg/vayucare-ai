@@ -1,19 +1,23 @@
-import { useState, useEffect, useRef } from 'react';
-import { 
-  X, Copy, Check, Share2, Users, Home, GraduationCap, 
-  Sparkles, RefreshCw, Languages, MessageCircle, FileText, CheckCircle2 
+import { useState, useEffect, useRef, useCallback } from 'react';
+import {
+  X, Copy, Check, Share2, Users, Home, GraduationCap,
+  RefreshCw, MessageCircle, FileText, CheckCircle2
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { generateAdvisory } from '../services/geminiService';
 import { getCPCBScaleCategory } from '../utils/aqi';
+import {
+  buildFallbackAdvisory,
+  type AdvisoryAudience,
+  type AdvisoryLanguage,
+} from '../utils/advisories';
 
 interface AdvisoryModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-export type AdvisoryAudience = 'rwa' | 'family' | 'school';
-export type AdvisoryLanguage = 'en' | 'hi';
+export type { AdvisoryAudience, AdvisoryLanguage };
 
 function formatInlineWhatsApp(text: string) {
   const parts = text.split(/(\*[^*]+\*)/g);
@@ -41,21 +45,18 @@ function renderWhatsAppPreview(text: string) {
           return <div key={idx} className="h-1" />;
         }
 
-        // Header lines like *VayuCare Community Advisory — Delhi*
         const isHeader = trimmed.startsWith('*') && trimmed.endsWith('*') && !trimmed.slice(1, -1).includes('*');
         if (isHeader) {
-          const headingContent = trimmed.slice(1, -1);
           return (
-            <div 
-              key={idx} 
+            <div
+              key={idx}
               className="font-semibold text-accent text-xs sm:text-sm tracking-tight pt-1 pb-0.5 border-b border-ink-100/[0.06] first:pt-0"
             >
-              {headingContent}
+              {trimmed.slice(1, -1)}
             </div>
           );
         }
 
-        // Bullet points like • point or - point
         const isBullet = trimmed.startsWith('•') || trimmed.startsWith('-');
         if (isBullet) {
           const content = trimmed.replace(/^[•\-]\s*/, '');
@@ -67,7 +68,6 @@ function renderWhatsAppPreview(text: string) {
           );
         }
 
-        // Signoff line starting with —
         if (trimmed.startsWith('—') || trimmed.startsWith('--')) {
           return (
             <div key={idx} className="text-[11px] text-ink-400 italic pt-2 border-t border-ink-100/[0.08]">
@@ -76,7 +76,6 @@ function renderWhatsAppPreview(text: string) {
           );
         }
 
-        // Regular line
         return (
           <div key={idx} className="text-ink-200">
             {formatInlineWhatsApp(trimmed)}
@@ -95,109 +94,41 @@ export function AdvisoryModal({ isOpen, onClose }: AdvisoryModalProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [copied, setCopied] = useState(false);
   const [showRawMarkdown, setShowRawMarkdown] = useState(false);
-  const lastLoadedCityRef = useRef<string | null>(null);
 
-  // Generate advisory
-  const handleGenerate = async (
-    targetAudience: AdvisoryAudience = audience,
-    targetLang: AdvisoryLanguage = language
+  const lastLoadedCityRef = useRef<string | null>(null);
+  const requestIdRef = useRef(0);
+  const abortRef = useRef<AbortController | null>(null);
+  const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleGenerate = useCallback(async (
+    targetAudience: AdvisoryAudience,
+    targetLang: AdvisoryLanguage
   ) => {
     if (!aqiData) return;
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    const reqId = ++requestIdRef.current;
+
     setIsLoading(true);
     try {
-      const customProfile = {
-        ...profile,
-        targetAudience
-      };
-      const bulletin = await generateAdvisory(customProfile, aqiData, targetAudience, targetLang);
-      setAdvisoryText(bulletin);
-    } catch {
-      // Local graceful fallback
-      const cpcbCat = getCPCBScaleCategory(aqiData.aqi);
-      const station = aqiData.stationName || `${aqiData.city} Sensor`;
-      if (targetLang === 'hi') {
-        if (targetAudience === 'school') {
-          setAdvisoryText(
-            `*वायुकेयर विद्यालय व अभिभावक वायु सतर्कता बुलेटिन — ${aqiData.city}*\n\n` +
-            `*वर्तमान एक्यूआई (IND-AQI): ${aqiData.aqi} (${cpcbCat})*\n` +
-            `*पीएम 2.5 सांद्रता: ${aqiData.pm25 || '—'} µg/m³* | स्टेशन: ${station}\n\n` +
-            `*छात्रों और विद्यालय हेतु अनिवार्य सुरक्षा निर्देश:*\n` +
-            `• सुबह की स्कूल बस व वैन यात्रा में सभी विद्यार्थियों को N95 मास्क पहनना अनिवार्य करें\n` +
-            `• सुबह की आउटडोर प्रार्थना सभा और पीटी (खेलकूद) अभ्यास तुरंत प्रभाव से स्थगित करें\n` +
-            `• मॉर्निंग इनवर्जन के दौरान कक्षाओं के दरवाजे और खिड़कियां पूरी तरह बंद रखें\n` +
-            `• सांस की तकलीफ या अस्थमा से पीड़ित बच्चों को इनहेलर साथ रखने का निर्देश दें\n\n` +
-            `— *वायुकेयर वायुमंडलीय सतर्कता प्रभाग*`
-          );
-        } else if (targetAudience === 'family') {
-          setAdvisoryText(
-            `*वायुकेयर घरेलू व वरिष्ठ नागरिक स्वास्थ्य परामर्श — ${aqiData.city}*\n\n` +
-            `*वर्तमान एक्यूआई (IND-AQI): ${aqiData.aqi} (${cpcbCat})*\n` +
-            `*पीएम 2.5 सांद्रता: ${aqiData.pm25 || '—'} µg/m³* | स्टेशन: ${station}\n\n` +
-            `*परिवार और बुजुर्गों के लिए सुरक्षा उपाय:*\n` +
-            `• वरिष्ठ नागरिक सुबह और शाम की सैर दोपहर 12 बजे तक के लिए टालें\n` +
-            `• अस्थमा व सांस के मरीज आपातकालीन इनहेलर हमेशा अपने पास रखें\n` +
-            `• बेडरूम में एयर प्यूरीफायर को ऑटो/हाई मोड पर चलाएं और खिड़कियां सील रखें\n` +
-            `• घर में धूल उड़ने से रोकने के लिए दिन में दो बार पानी से गीला पोछा लगाएं\n\n` +
-            `— *वायुकेयर वायुमंडलीय सतर्कता प्रभाग*`
-          );
-        } else {
-          setAdvisoryText(
-            `*वायुकेयर आरडब्ल्यूए (RWA) आवासीय सोसायटी एडवाइजरी — ${aqiData.city}*\n\n` +
-            `*वर्तमान एक्यूआई (IND-AQI): ${aqiData.aqi} (${cpcbCat})*\n` +
-            `*पीएम 2.5 सांद्रता: ${aqiData.pm25 || '—'} µg/m³* | स्टेशन: ${station}\n\n` +
-            `*सोसायटी निवासियों व प्रबंधन हेतु आवश्यक सावधानियां:*\n` +
-            `• सुरक्षा गार्ड्स और मेंटेनेंस कर्मचारियों को तुरंत N95 मास्क वितरित करें\n` +
-            `• सोसायटी परिसर और रास्तों पर सूखी झाड़ू न लगाएं; केवल पानी का छिड़काव करें\n` +
-            `• सूखे पत्तों, बागवानी कचरे और अलाव जलाने पर पूर्ण प्रतिबंध लगाएं\n` +
-            `• क्लबहाउस में बुजुर्गों और बच्चों के लिए स्वच्छ वायु क्षेत्र (Clean Air Zone) उपलब्ध कराएं\n\n` +
-            `— *वायुकेयर वायुमंडलीय सतर्कता प्रभाग*`
-          );
-        }
-      } else {
-        if (targetAudience === 'school') {
-          setAdvisoryText(
-            `*VayuCare School & Parents Health Bulletin — ${aqiData.city}*\n\n` +
-            `*Current IND-AQI: ${aqiData.aqi} (${cpcbCat})*\n` +
-            `*Fine PM2.5 Level: ${aqiData.pm25 || '—'} µg/m³* | Station: ${station}\n\n` +
-            `*Mandatory Safety Protocols for Students & Staff:*\n` +
-            `• Enforce snug N95 masks for all students during morning school bus & van commutes\n` +
-            `• Suspend outdoor morning assemblies and physical education (PT) drills immediately\n` +
-            `• Keep classroom doors and windows firmly closed during early morning inversion peak\n` +
-            `• Alert parents of asthmatic children to keep prescription rescue inhalers in school bags\n\n` +
-            `— *VayuCare Atmospheric Intelligence*`
-          );
-        } else if (targetAudience === 'family') {
-          setAdvisoryText(
-            `*VayuCare Household & Elder Health Advisory — ${aqiData.city}*\n\n` +
-            `*Current IND-AQI: ${aqiData.aqi} (${cpcbCat})*\n` +
-            `*Fine PM2.5 Level: ${aqiData.pm25 || '—'} µg/m³* | Station: ${station}\n\n` +
-            `*Priority Safeguards for Families & Vulnerable Members:*\n` +
-            `• Postpone senior citizen morning balcony walks until thermal mixing after 12:00 PM\n` +
-            `• Keep prescribed bronchodilators and asthma medication within arm's reach\n` +
-            `• Run bedroom HEPA air purifiers continuously and seal roadside drafts with door snakes\n` +
-            `• Wet-mop floors twice daily with water rather than sweeping to capture settled soot\n\n` +
-            `— *VayuCare Atmospheric Intelligence*`
-          );
-        } else {
-          setAdvisoryText(
-            `*VayuCare Neighborhood RWA Advisory — ${aqiData.city}*\n\n` +
-            `*Current IND-AQI: ${aqiData.aqi} (${cpcbCat})*\n` +
-            `*Fine PM2.5 Level: ${aqiData.pm25 || '—'} µg/m³* | Station: ${station}\n\n` +
-            `*Community Safeguards for Society Management & Residents:*\n` +
-            `• Distribute N95 masks to outdoor security guards, maintenance staff, and gardeners\n` +
-            `• Mandate water-sprinkling on society driveways; strictly ban dry sweeping of dust\n` +
-            `• Enforce zero tolerance against open leaf, garbage, or biomass burning in the perimeter\n` +
-            `• Keep clubhouse and community indoor halls sealed as clean-air safe spaces for elders\n\n` +
-            `— *VayuCare Atmospheric Intelligence*`
-          );
-        }
+      const customProfile = { ...profile, targetAudience };
+      const bulletin = await generateAdvisory(customProfile, aqiData, targetAudience, targetLang, controller.signal);
+      if (reqId === requestIdRef.current) {
+        setAdvisoryText(bulletin);
+      }
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      if (reqId === requestIdRef.current) {
+        setAdvisoryText(buildFallbackAdvisory(aqiData, targetAudience, targetLang));
       }
     } finally {
-      setIsLoading(false);
+      if (reqId === requestIdRef.current) {
+        setIsLoading(false);
+      }
     }
-  };
+  }, [aqiData, profile]);
 
-  // Requirement 3.1: Auto-generate the bulletin immediately on open
   useEffect(() => {
     if (isOpen && aqiData) {
       const cityKey = `${aqiData.city}-${aqiData.aqi}`;
@@ -206,7 +137,23 @@ export function AdvisoryModal({ isOpen, onClose }: AdvisoryModalProps) {
         handleGenerate(audience, language);
       }
     }
-  }, [isOpen, aqiData]);
+  }, [isOpen, aqiData, advisoryText, audience, language, handleGenerate]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isOpen, onClose]);
+
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+      if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+    };
+  }, []);
 
   if (!isOpen) return null;
 
@@ -214,7 +161,8 @@ export function AdvisoryModal({ isOpen, onClose }: AdvisoryModalProps) {
     if (!advisoryText) return;
     navigator.clipboard.writeText(advisoryText);
     setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+    copyTimerRef.current = setTimeout(() => setCopied(false), 2000);
   };
 
   const shareViaWhatsApp = () => {
@@ -234,7 +182,7 @@ export function AdvisoryModal({ isOpen, onClose }: AdvisoryModalProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-ink-950/80 backdrop-blur-sm" role="dialog" aria-modal="true">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-ink-950/80 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="Community Advisory">
       <div className="relative w-full sm:max-w-lg bg-ink-900 border-t sm:border border-ink-100/[0.1] rounded-t-2xl sm:rounded-2xl shadow-panel overflow-hidden flex flex-col max-h-[90vh] sm:max-h-[92vh]">
         {/* Mobile Drag Indicator Bar */}
         <div className="sm:hidden pt-2.5 pb-1 bg-ink-950/80 flex justify-center flex-shrink-0">
@@ -263,7 +211,6 @@ export function AdvisoryModal({ isOpen, onClose }: AdvisoryModalProps) {
           </div>
 
           <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
-            {/* Language Toggle: English | हिन्दी */}
             <div className="inline-flex rounded-lg bg-ink-850 p-0.5 border border-ink-100/[0.08] text-xs font-medium">
               <button
                 type="button"
@@ -292,6 +239,7 @@ export function AdvisoryModal({ isOpen, onClose }: AdvisoryModalProps) {
             </div>
 
             <button
+              type="button"
               onClick={onClose}
               className="p-1.5 text-ink-400 hover:text-ink-100 rounded-lg hover:bg-ink-800 transition-colors touch-manipulation"
               aria-label="Close modal"
@@ -303,7 +251,6 @@ export function AdvisoryModal({ isOpen, onClose }: AdvisoryModalProps) {
 
         {/* Content */}
         <div className="p-3.5 sm:p-5 overflow-y-auto overscroll-contain space-y-3.5 sm:space-y-4">
-          {/* Audience Tabs: RWA | Household | School */}
           <div>
             <label className="text-xs font-medium text-ink-300 block mb-2">
               Select target community audience:
@@ -319,6 +266,7 @@ export function AdvisoryModal({ isOpen, onClose }: AdvisoryModalProps) {
                 return (
                   <button
                     key={item.id}
+                    type="button"
                     onClick={() => onAudienceSelect(item.id)}
                     disabled={isLoading}
                     className={`flex flex-col items-center justify-center p-2 sm:p-2.5 rounded-xl border text-xs font-medium transition-all touch-manipulation min-h-[58px] ${
@@ -339,7 +287,6 @@ export function AdvisoryModal({ isOpen, onClose }: AdvisoryModalProps) {
             </div>
           </div>
 
-          {/* Bulletin Preview Box with WhatsApp formatting */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <span className="text-xs font-medium text-ink-300 flex items-center gap-1.5">
@@ -356,7 +303,6 @@ export function AdvisoryModal({ isOpen, onClose }: AdvisoryModalProps) {
               </button>
             </div>
 
-            {/* Container */}
             <div className="bg-ink-950/90 border border-ink-100/[0.09] rounded-xl p-4 shadow-subtle min-h-[180px] max-h-72 overflow-y-auto">
               {isLoading ? (
                 <div className="py-10 flex flex-col items-center justify-center text-ink-400 space-y-3">
@@ -381,6 +327,7 @@ export function AdvisoryModal({ isOpen, onClose }: AdvisoryModalProps) {
         {/* Footer Actions */}
         <div className="px-4 sm:px-5 py-3 sm:py-3.5 border-t border-ink-100/[0.08] bg-ink-950/70 flex flex-col sm:flex-row items-center justify-between gap-2.5 flex-shrink-0">
           <button
+            type="button"
             onClick={() => handleGenerate(audience, language)}
             disabled={isLoading}
             className="w-full sm:w-auto btn-secondary text-xs flex items-center justify-center gap-1.5 min-h-[40px] touch-manipulation"
@@ -391,6 +338,7 @@ export function AdvisoryModal({ isOpen, onClose }: AdvisoryModalProps) {
 
           <div className="w-full sm:w-auto flex items-center gap-2">
             <button
+              type="button"
               onClick={copyToClipboard}
               disabled={isLoading || !advisoryText}
               className="flex-1 sm:flex-none btn-secondary text-xs flex items-center justify-center gap-1.5 min-h-[40px] touch-manipulation"
@@ -400,6 +348,7 @@ export function AdvisoryModal({ isOpen, onClose }: AdvisoryModalProps) {
               {copied ? 'Copied' : 'Copy'}
             </button>
             <button
+              type="button"
               onClick={shareViaWhatsApp}
               disabled={isLoading || !advisoryText}
               className="flex-1 sm:flex-none btn-primary text-xs flex items-center justify-center gap-1.5 min-h-[40px] touch-manipulation"

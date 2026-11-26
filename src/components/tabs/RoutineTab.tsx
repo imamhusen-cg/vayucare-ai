@@ -1,8 +1,9 @@
 import { 
   Sun, Sunset, Moon, Car, Package, AlertTriangle, 
-  CheckCircle, Shield, Baby, HeartHandshake, Activity, Sparkles 
+  CheckCircle, Shield, Baby, HeartHandshake, Activity
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { GuidanceSkeleton } from './GuidanceSkeleton';
 import type { TimeWindow } from '../../types';
 
 function getDiurnalBadge(period: 'morning' | 'afternoon' | 'evening', _window: TimeWindow, aqi: number) {
@@ -131,28 +132,6 @@ function TimeWindowCard({
   );
 }
 
-function GuidanceSkeleton() {
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-2 text-xs font-mono text-accent py-1.5 px-3 rounded-lg bg-accent/10 border border-accent/20 w-fit">
-        <Sparkles className="w-3.5 h-3.5 text-accent animate-spin" />
-        <span>Synthesizing Diurnal Routine via Gemini...</span>
-      </div>
-      {[...Array(3)].map((_, i) => (
-        <div key={i} className="surface-card space-y-3 relative overflow-hidden">
-          <div className="absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-transparent via-white/[0.04] to-transparent pointer-events-none" />
-          <div className="flex justify-between items-center">
-            <div className="h-4 w-36 bg-ink-800 rounded-md animate-pulse" />
-            <div className="h-5 w-24 bg-ink-800 rounded-md animate-pulse" />
-          </div>
-          <div className="h-10 w-full bg-ink-850 rounded-lg animate-pulse" />
-          <div className="h-12 w-full bg-ink-900 rounded-lg animate-pulse" />
-        </div>
-      ))}
-    </div>
-  );
-}
-
 function getGuidanceBadgeInfo(source: string | null | undefined): { label: string; isGemini: boolean } {
   if (!source) {
     return { label: 'Local Telemetry Rules • Grounded in CPCB Data', isGemini: false };
@@ -175,7 +154,9 @@ function getGuidanceBadgeInfo(source: string | null | undefined): { label: strin
 export function RoutineTab() {
   const { guidanceData, isLoadingGuidance, guidanceError, guidanceSource, aqiData } = useApp();
 
-  if (isLoadingGuidance) return <GuidanceSkeleton />;
+  if (isLoadingGuidance) {
+    return <GuidanceSkeleton message="Synthesizing Diurnal Routine via Gemini..." cardCount={3} variant="routine" />;
+  }
 
   if (guidanceError) {
     return (
@@ -188,7 +169,9 @@ export function RoutineTab() {
     );
   }
 
-  if (!guidanceData) return <GuidanceSkeleton />;
+  if (!guidanceData) {
+    return <GuidanceSkeleton message="Synthesizing Diurnal Routine via Gemini..." cardCount={3} variant="routine" />;
+  }
 
   const r = guidanceData.routinePlanner;
   const aqiNum = aqiData ? Number(aqiData.aqi) : 120;

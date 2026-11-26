@@ -1,5 +1,5 @@
 import { useState, useMemo, useRef } from 'react';
-import { Sun, AlertTriangle, ShieldCheck, Clock, TrendingDown } from 'lucide-react';
+import { Sun, AlertTriangle, Clock, TrendingDown } from 'lucide-react';
 import { getCPCBScaleCategory, getAQIColor, getAQIBadgeClass } from '../utils/aqi';
 
 interface DiurnalPoint {
@@ -101,7 +101,10 @@ export function DiurnalAQIChart({ currentAQI }: { currentAQI: number }) {
   const chartHeight = svgHeight - padTop - padBottom;
 
   const minVal = 0;
-  const maxVal = Math.max(300, Math.ceil((Math.max(...data.map(d => d.aqi)) * 1.15) / 50) * 50);
+  const maxVal = useMemo(
+    () => Math.max(300, Math.ceil((Math.max(...data.map(d => d.aqi)) * 1.15) / 50) * 50),
+    [data]
+  );
 
   // Compute X and Y coordinates for each hour
   const points = useMemo(() => {
@@ -158,7 +161,7 @@ export function DiurnalAQIChart({ currentAQI }: { currentAQI: number }) {
     const clampedX = Math.max(padLeft, Math.min(svgWidth - padRight, svgX));
     const normalized = (clampedX - padLeft) / chartWidth;
     const hourIndex = Math.min(23, Math.max(0, Math.round(normalized * 23)));
-    setHoveredIndex(hourIndex);
+    setHoveredIndex(prev => (prev === hourIndex ? prev : hourIndex));
   };
 
   const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {

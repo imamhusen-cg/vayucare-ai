@@ -25,4 +25,22 @@ describe('useAnimatedNumber Hook', () => {
     const { result } = renderHook(() => useAnimatedNumber(4.25, 300, 1));
     expect(result.current).toBe(4.25);
   });
+
+  it('snaps immediately when duration <= 0 and ignores NaN targets', () => {
+    const { result, rerender } = renderHook(
+      ({ target, duration }) => useAnimatedNumber(target, duration, 0),
+      { initialProps: { target: 50, duration: 0 } }
+    );
+    expect(result.current).toBe(50);
+
+    act(() => {
+      rerender({ target: 120, duration: 0 });
+    });
+    expect(result.current).toBe(120);
+
+    act(() => {
+      rerender({ target: Number.NaN, duration: 0 });
+    });
+    expect(result.current).toBe(120);
+  });
 });

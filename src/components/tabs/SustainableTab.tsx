@@ -1,5 +1,6 @@
-import { Leaf, Heart, Clock, Bus, Home, HeartPulse, Apple, Sparkles } from 'lucide-react';
+import { Leaf, Heart, Clock, Bus, Home, HeartPulse, Apple } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { GuidanceSkeleton } from './GuidanceSkeleton';
 
 const CATEGORY_ICONS: Record<string, React.ElementType> = {
   transport: Bus,
@@ -30,32 +31,12 @@ function getUrgencyBadge(urgency: 'today' | 'this-week' | 'long-term') {
   }
 }
 
-function ShimmerSkeleton() {
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-2 text-xs font-mono text-accent py-1.5 px-3 rounded-lg bg-accent/10 border border-accent/20 w-fit">
-        <Sparkles className="w-3.5 h-3.5 text-accent animate-spin" />
-        <span>Synthesizing Sustainable Actions via Gemini...</span>
-      </div>
-      {[...Array(3)].map((_, i) => (
-        <div key={i} className="surface-card space-y-3 relative overflow-hidden">
-          <div className="absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-transparent via-white/[0.04] to-transparent pointer-events-none" />
-          <div className="h-4 w-48 bg-ink-800 rounded-md animate-pulse" />
-          <div className="grid grid-cols-2 gap-3">
-            <div className="h-16 bg-ink-850 rounded-xl animate-pulse" />
-            <div className="h-16 bg-ink-850 rounded-xl animate-pulse" />
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 export function SustainableTab() {
   const { guidanceData, isLoadingGuidance } = useApp();
 
-  if (isLoadingGuidance) return <ShimmerSkeleton />;
-  if (!guidanceData) return <ShimmerSkeleton />;
+  if (isLoadingGuidance || !guidanceData) {
+    return <GuidanceSkeleton message="Synthesizing Sustainable Actions via Gemini..." cardCount={3} variant="sustainable" />;
+  }
 
   return (
     <div className="space-y-4">

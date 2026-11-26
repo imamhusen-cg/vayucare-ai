@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { 
   Radio, MapPin, ArrowUpRight, ArrowDownRight, Compass, 
-  Check, ExternalLink, Activity, Info 
+  ExternalLink, Info 
 } from 'lucide-react';
 import { getAQIColor, getAQIBadgeClass, getCPCBScaleCategory } from '../utils/aqi';
 

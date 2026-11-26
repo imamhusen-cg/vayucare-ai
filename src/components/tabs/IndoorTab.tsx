@@ -1,38 +1,31 @@
-import { Home, Wind, Leaf, ChefHat, CheckCircle2, Sparkles } from 'lucide-react';
+import { Home, Wind, Leaf, ChefHat, CheckCircle2 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { GuidanceSkeleton } from './GuidanceSkeleton';
 
-function ShimmerSkeleton() {
+function isVentilationPermitted(windowStrategy: string): boolean {
+  const lower = windowStrategy.toLowerCase();
+  if (/do not open|never open|avoid opening|keep.*closed throughout/.test(lower)) {
+    return false;
+  }
   return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-2 text-xs font-mono text-accent py-1.5 px-3 rounded-lg bg-accent/10 border border-accent/20 w-fit">
-        <Sparkles className="w-3.5 h-3.5 text-accent animate-spin" />
-        <span>Synthesizing Indoor Air Protocols via Gemini...</span>
-      </div>
-      {[...Array(4)].map((_, i) => (
-        <div key={i} className="surface-card space-y-3 relative overflow-hidden">
-          <div className="absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-transparent via-white/[0.04] to-transparent pointer-events-none" />
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="h-4 w-44 bg-ink-800 rounded-md animate-pulse" />
-            <div className="h-5 w-32 bg-ink-800 rounded-md animate-pulse" />
-          </div>
-          <div className="h-10 w-full bg-ink-850 rounded-lg animate-pulse" />
-        </div>
-      ))}
-    </div>
+    lower.includes('permitted') ||
+    lower.includes('open windows') ||
+    lower.includes('cross-ventilate') ||
+    lower.includes('can be opened')
   );
 }
 
 export function IndoorTab() {
   const { guidanceData, isLoadingGuidance, profile, aqiData } = useApp();
 
-  if (isLoadingGuidance) return <ShimmerSkeleton />;
-  if (!guidanceData) return <ShimmerSkeleton />;
+  if (isLoadingGuidance || !guidanceData) {
+    return <GuidanceSkeleton message="Synthesizing Indoor Air Protocols via Gemini..." cardCount={4} variant="indoor" />;
+  }
 
   const iaq = guidanceData.indoorAQ;
   const aqiNum = aqiData ? Number(aqiData.aqi) : 150;
   const isSevere = aqiNum > 200;
 
-  // Enforce 2 actionable sentences on windowStrategy if stubbed
   let windowStrategy = iaq.windowStrategy;
   if (!windowStrategy || windowStrategy.trim().length < 25 || /^(?:open|closed|partial|yes|no)\.?$/i.test(windowStrategy.trim())) {
     windowStrategy = isSevere
@@ -40,7 +33,6 @@ export function IndoorTab() {
       : 'Keep windows sealed during early morning and evening rush hours when thermal inversion traps vehicular exhaust near the ground. Open windows for 30–45 minutes around 1:00 PM – 3:30 PM when surface solar warming raises the boundary layer for cleaner air exchange.';
   }
 
-  // Enforce 2 actionable sentences on purifierAdvice if stubbed
   let purifierAdvice = iaq.purifierAdvice;
   if (!purifierAdvice || purifierAdvice.trim().length < 25) {
     purifierAdvice = profile.hasAirPurifier
@@ -48,10 +40,7 @@ export function IndoorTab() {
       : 'Since your home lacks a dedicated HEPA air purifier, wet-mop all hard floors twice daily to bind settled soot and prevent dust re-suspension. Place damp rolled towels at the base of exterior doors and avoid indoor incense or candle combustion completely.';
   }
 
-  const canOpen = windowStrategy.toLowerCase().includes('permitted') ||
-    windowStrategy.toLowerCase().includes('open windows') ||
-    windowStrategy.toLowerCase().includes('cross-ventilate') ||
-    windowStrategy.toLowerCase().includes('can be opened');
+  const canOpen = isVentilationPermitted(windowStrategy);
 
   return (
     <div className="space-y-4">

@@ -85,35 +85,6 @@ export function getAQIAmbientGlowColor(aqi: number): { hex: string; rgba: string
   };
 }
 
-export function aqiCategoryToAlertLevel(category: string): AlertLevel {
-  const map: Record<string, AlertLevel> = {
-    'Good': 'good',
-    'Satisfactory': 'satisfactory',
-    'Moderate': 'moderate',
-    'Poor': 'poor',
-    'Very Poor': 'veryPoor',
-    'Severe': 'severe',
-    // Fallbacks for legacy US EPA names if present in cached payloads
-    'Unhealthy for Sensitive Groups': 'moderate',
-    'Unhealthy': 'poor',
-    'Very Unhealthy': 'veryPoor',
-    'Hazardous': 'severe',
-  };
-  return map[category] || 'moderate';
-}
-
-export function getAlertLevelColor(level: AlertLevel | string): string {
-  const map: Record<string, string> = {
-    good: 'text-[#4cc38a] bg-[#4cc38a]/10 border-[#4cc38a]/20',
-    satisfactory: 'text-[#84cc16] bg-[#84cc16]/10 border-[#84cc16]/20',
-    moderate: 'text-[#eab308] bg-[#eab308]/10 border-[#eab308]/20',
-    poor: 'text-[#f97316] bg-[#f97316]/10 border-[#f97316]/20',
-    veryPoor: 'text-[#ef4444] bg-[#ef4444]/10 border-[#ef4444]/20',
-    severe: 'text-[#f87171] bg-[#991b1b]/20 border-[#991b1b]/35',
-  };
-  return map[level] || map.moderate;
-}
-
 export function formatPollutant(value: number | null, unit = 'μg/m³'): string {
   if (value === null || value === undefined) return '—';
   return `${value.toFixed(1)} ${unit}`;

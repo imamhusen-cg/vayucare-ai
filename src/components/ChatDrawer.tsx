@@ -94,24 +94,41 @@ export function ChatDrawer() {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Auto-scroll to bottom of messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatMessages, isTyping]);
 
-  // Focus input and lock body scroll when drawer opens
+  // Focus input, lock body scroll, and support Escape dismissal when drawer opens
   useEffect(() => {
-    if (chatOpen) {
-      document.body.style.overflow = 'hidden';
-      setTimeout(() => inputRef.current?.focus(), 150);
-    } else {
+    if (!chatOpen) {
       document.body.style.overflow = '';
+      return;
     }
+
+    document.body.style.overflow = 'hidden';
+    const focusTimer = setTimeout(() => inputRef.current?.focus(), 150);
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !isAdvisoryModalOpen) {
+        setChatOpen(false);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+
     return () => {
+      clearTimeout(focusTimer);
+      window.removeEventListener('keydown', onKeyDown);
       document.body.style.overflow = '';
     };
-  }, [chatOpen]);
+  }, [chatOpen, isAdvisoryModalOpen, setChatOpen]);
+
+  useEffect(() => {
+    return () => {
+      if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+    };
+  }, []);
 
   const sendMessage = async (rawText: string) => {
     const text = rawText.trim();
@@ -168,7 +185,8 @@ export function ChatDrawer() {
   const copyMessage = (id: string, text: string) => {
     navigator.clipboard.writeText(text);
     setCopiedId(id);
-    setTimeout(() => setCopiedId(null), 2000);
+    if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+    copyTimerRef.current = setTimeout(() => setCopiedId(null), 2000);
   };
 
   const shareMessageOnWhatsApp = (text: string) => {

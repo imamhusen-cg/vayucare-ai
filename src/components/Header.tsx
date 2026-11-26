@@ -2,7 +2,7 @@ import { Wind, RefreshCw, LocateFixed, MapPin } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
 export function Header() {
-  const { refreshAQI, isLoadingAQI, aqiData, profile, selectCurrentLocation, isLocating } = useApp();
+  const { refreshAQI, isLoadingAQI, profile, selectCurrentLocation, isLocating } = useApp();
 
   return (
     <header className="sticky top-0 z-40 bg-ink-950/85 backdrop-blur-md border-b border-ink-100/[0.08] h-14">
