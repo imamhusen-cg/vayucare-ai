@@ -23,8 +23,15 @@ app.use((req, res, next) => {
 // Middleware
 app.use(helmet({ frameguard: { action: 'deny' } }));
 app.use(compression());
+const allowedOrigins = [
+  process.env.ALLOWED_ORIGIN,
+  'https://vayucare-ai.vercel.app',
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+].filter(Boolean);
+
 app.use(cors({
-  origin: process.env.ALLOWED_ORIGIN || true,
+  origin: allowedOrigins,
   methods: ['GET', 'POST'],
   allowedHeaders: ['Content-Type']
 }));

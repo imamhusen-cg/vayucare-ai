@@ -86,7 +86,7 @@ function cleanAndParseJSON(rawText) {
 
 function sanitizeString(str, maxLen = 200) {
   if (!str || typeof str !== 'string') return '';
-  return str.replace(/<[^>]*>/g, '').trim().slice(0, maxLen);
+  return str.slice(0, maxLen).replace(/[<>]/g, '').trim();
 }
 
 function sanitizeProfile(profile) {

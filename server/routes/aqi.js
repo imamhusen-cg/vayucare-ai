@@ -346,7 +346,7 @@ router.get('/city', async (req, res) => {
 
     throw new Error(`No active CPCB Indian monitoring station currently available for ${city}`);
   } catch (err) {
-    console.error(`AQI Indian fetch error for ${city}:`, err.message);
+    console.error('AQI Indian fetch error for %s: %s', city, err.message);
     res.json(getDemoFallbackData(city, err.message));
   }
 });
