@@ -74,9 +74,12 @@ describe('VayuCare API Server Test Suite', () => {
     await new Promise((resolve) => server.close(resolve));
   });
 
-  test('GET /api/health responds with status ok', async () => {
+  test('GET /api/health responds with status ok and security headers', async () => {
     const res = await fetch(`${baseUrl}/api/health`);
     assert.equal(res.status, 200);
+    assert.equal(res.headers.get('x-content-type-options'), 'nosniff');
+    assert.equal(res.headers.get('x-frame-options'), 'DENY');
+    assert.equal(res.headers.get('referrer-policy'), 'strict-origin-when-cross-origin');
     const body = await res.json();
     assert.equal(body.status, 'ok');
     assert.ok(body.timestamp);
