@@ -111,7 +111,7 @@ WAQI Live CPCB Ingestion     Google Gemini Flash (3.x/Latest) Deterministic Fall
 
 ## 🧪 Automated Testing & Coverage
 
-VayuCare AI includes **62 automated tests across 11 suites** (50 frontend Vitest + 12 backend `node:test`):
+VayuCare AI includes **66 automated tests across 12 suites** (54 frontend Vitest + 12 backend `node:test`):
 
 ```bash
 # Run both Frontend & Backend suites
@@ -126,15 +126,16 @@ npm run test:coverage
 | Suite | Runner | Tests | Target Verification |
 | :--- | :---: | :---: | :--- |
 | `src/utils/aqi.test.ts` | Vitest | **19** | CPCB breakpoints (all 6 categories), honest sensor pass-through vs missing estimation flags, tailwind classes, WHO 24h multiplier math, metro city registry. |
-| `src/utils/exposure.test.ts` | Vitest | **10** | Commute normalization, baseline dose, HEPA indoor savings, 2-part mitigation %, vulnerability weights, cigarette equivalence. |
+| `src/utils/exposure.test.ts` | Vitest | **10** | Commute normalization, baseline dose, HEPA indoor savings, N95 fit shielding, 2-part mitigation %, vulnerability weights, cigarette equivalence. |
+| `src/utils/actionImpact.test.ts` | Vitest | **3** | Counterfactual Action Impact Ranker determinism, non-negative savings invariant, exclusion of adopted habits. |
 | `src/utils/advisories.test.ts` | Vitest | **2** | WhatsApp RWA advisory generation in English and Hindi for family and community audiences. |
 | `src/constants/presets.test.ts` | Vitest | **2** | Completeness and validity of demo presets and Indian city registry. |
 | `src/hooks/useAnimatedNumber.test.ts` | Vitest | **4** | Initial render value, RAF easing interpolation, decimal rounding, reduced motion support. |
-| `src/context/AppContext.test.tsx` | Vitest | **3** | Profile state persistence, station switching, preset loading. |
+| `src/context/AppContext.test.tsx` | Vitest | **3** | Profile state persistence, last-known cache SWR, station switching, preset loading. |
 | `src/components/ErrorBoundary.test.tsx` | Vitest | **2** | Runtime exception boundary isolation and accessible recovery fallback UI. |
-| `src/components/Components.test.tsx` | Vitest | **4** | Rendering of Bento cards, badges, guidance skeleton, accessibility attributes. |
+| `src/components/Components.test.tsx` | Vitest | **5** | Rendering of Bento cards, ActionImpactCard ranker, badges, guidance skeleton, accessibility attributes. |
 | `src/services/services.test.ts` | Vitest | **4** | AQI fetch logic, geo-lookup, station search, Gemini service fallbacks. |
-| `server/test/api.test.js (API)` | Node:Test | **9** | `/api/health` + Helmet headers, `/api/aqi/city`, `/api/aqi/search`, `/api/aqi/station`, `/api/aqi/geo`, `/api/gemini/guidance`, `/api/gemini/chat`, `/api/gemini/advisory`, 404 handler. |
+| `server/test/api.test.js (API)` | Node:Test | **9** | `/api/health` + Helmet headers, `/api/aqi/city`, `/api/aqi/search`, `/api/aqi/station`, `/api/aqi/geo`, `/api/gemini/guidance`, multi-turn `/api/gemini/chat`, `/api/gemini/advisory`, 404 handler. |
 | `server/test/api.test.js (Utils)`| Node:Test | **3** | LRU cache eviction, TTL expiry, sensor pass-through & fallback estimation, bulletin generation. |
 
 ---

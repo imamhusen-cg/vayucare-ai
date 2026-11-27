@@ -5,6 +5,7 @@ import { PresetBanner } from './PresetBanner';
 import { IndoorTab } from './tabs/IndoorTab';
 import { AQIDashboard } from './AQIDashboard';
 import { AdvisoryModal } from './AdvisoryModal';
+import { ActionImpactCard } from './ActionImpactCard';
 import * as aqiService from '../services/aqiService';
 import * as geminiService from '../services/geminiService';
 import type { AQIData, GuidanceResponse } from '../types';
@@ -134,5 +135,29 @@ describe('Core UI Components', () => {
 
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('ActionImpactCard ranks counterfactual dose savings and shows empty state when optimized', () => {
+    const unprotected = {
+      city: 'Delhi',
+      hasKids: false,
+      hasSenior: false,
+      hasRespiratoryIssues: false,
+      commuteMode: 'Cycle' as const,
+      hasAirPurifier: false,
+    };
+
+    const { rerender } = render(<ActionImpactCard profile={unprotected} aqiData={mockAQI} />);
+    expect(screen.getByText('Biggest moves for you today')).toBeTruthy();
+    expect(screen.getByText('Model estimate')).toBeTruthy();
+    expect(screen.getByText('How is this calculated?')).toBeTruthy();
+
+    rerender(
+      <ActionImpactCard
+        profile={{ ...unprotected, hasAirPurifier: true, commuteMode: 'Work From Home' }}
+        aqiData={mockAQI}
+      />
+    );
+    expect(screen.getByText(/You're already doing the top protective actions/i)).toBeTruthy();
   });
 });

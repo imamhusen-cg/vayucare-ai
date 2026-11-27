@@ -118,20 +118,31 @@ export function calculateExposureMetrics(
 
   switch (commute) {
     case 'Cycle':
-      // Open roadside direct exposure + exertion hyperventilation (1.75 m³/hr)
-      commuteSavingsUg = 0;
-      commuteProtectionPct = 0;
-      commuteEfficiencyText = 'High Exertion Roadside (+125% exposure, 2.5× respiration)';
+      // Open roadside direct exposure + exertion (conservative ~45% particulate reduction when N95 mask worn)
+      if (profile.hasMask) {
+        const maskedCycleDose = baselineCommuteDose * 0.55;
+        commuteSavingsUg = Math.round((baselineCommuteDose - maskedCycleDose) * vulnMultiplier);
+        commuteProtectionPct = Math.round((commuteSavingsUg / baselineUnprotectedDoseUg) * 100);
+        commuteEfficiencyText = `Fitted N95 on Cycle (~45% fit shield • +${commuteProtectionPct}% daily)`;
+      } else {
+        commuteSavingsUg = 0;
+        commuteProtectionPct = 0;
+        commuteEfficiencyText = 'High Exertion Roadside (+125% exposure, 2.5× respiration)';
+      }
       break;
 
-    case 'Auto/Open Transit':
-      // Roadside tailpipe exhaust and dust draft
-      const autoCommuteDose = ambientPM25 * 1.30 * 0.90 * 2;
+    case 'Auto/Open Transit': {
+      // Roadside tailpipe exhaust and dust draft (conservative ~45% particulate reduction when N95 mask worn)
+      const maskFactor = profile.hasMask ? 0.55 : 1.0;
+      const autoCommuteDose = ambientPM25 * 1.30 * 0.90 * 2 * maskFactor;
       const rawAutoSaved = Math.max(0, baselineCommuteDose - autoCommuteDose);
       commuteSavingsUg = Math.round(rawAutoSaved * vulnMultiplier);
       commuteProtectionPct = Math.max(0, Math.round((commuteSavingsUg / baselineUnprotectedDoseUg) * 100));
-      commuteEfficiencyText = 'Open Roadside Draft (Direct tailpipe & particulate drift)';
+      commuteEfficiencyText = profile.hasMask
+        ? `Fitted N95 in Open Transit (~45% fit shield • +${commuteProtectionPct}% daily)`
+        : 'Open Roadside Draft (Direct tailpipe & particulate drift)';
       break;
+    }
 
     case 'Car with AC':
       // Recirculated cabin air filter blocks ~68% of particulate

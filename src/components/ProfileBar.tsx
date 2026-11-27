@@ -8,6 +8,7 @@ import { isMetroCity } from '../utils/aqi';
 import { calculateExposureMetrics, normalizeCommuteMode } from '../utils/exposure';
 import { StationSearch } from './StationSearch';
 import { ExposureSummaryCard } from './ExposureSummaryCard';
+import { ActionImpactCard } from './ActionImpactCard';
 import type { UserProfile, CommuteMode } from '../types';
 import type { LucideIcon } from 'lucide-react';
 
@@ -19,7 +20,7 @@ const HOUSEHOLD_RISK_ITEMS = [
 ];
 
 export function ProfileBar() {
-  const { profile, setProfile, selectStation, aqiData } = useApp();
+  const { profile, setProfile, selectStation, aqiData, isLoadingAQI } = useApp();
 
   const hasMetro = isMetroCity(profile.city);
   const exposure = useMemo(() => calculateExposureMetrics(profile, aqiData), [profile, aqiData]);
@@ -167,6 +168,13 @@ export function ProfileBar() {
         exposure={exposure}
         hasAirPurifier={profile.hasAirPurifier}
         activeNormalizedCommute={activeNormalizedCommute}
+      />
+
+      {/* Signature Decision Engine: Top 3 Counterfactual Dose-Saving Actions */}
+      <ActionImpactCard
+        profile={profile}
+        aqiData={aqiData}
+        isLoading={isLoadingAQI && !aqiData}
       />
 
       {/* Privacy & Data Consent Disclosure */}

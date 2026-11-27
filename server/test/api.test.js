@@ -153,12 +153,16 @@ describe('VayuCare API Server Test Suite', () => {
     assert.equal(body.data.vulnerableGroupAlerts.seniors, null);
   });
 
-  test('POST /api/gemini/chat returns grounded reply, reasoningSteps, and 3 follow-ups', async () => {
+  test('POST /api/gemini/chat returns grounded reply, reasoningSteps, and supports multi-turn history', async () => {
     const res = await fetch(`${baseUrl}/api/gemini/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        question: 'Can kids play outside today?',
+        question: 'What about evening hours?',
+        history: [
+          { role: 'user', text: 'Can kids play outside today?' },
+          { role: 'assistant', text: 'Limit outdoor play for kids to midday.' },
+        ],
         profile: { city: 'Delhi', hasKids: true, commuteMode: 'Metro', hasAirPurifier: true },
         aqiData: { city: 'Delhi', aqi: 240, pm25: 102, pm10: 158 },
       }),
@@ -167,6 +171,7 @@ describe('VayuCare API Server Test Suite', () => {
     const body = await res.json();
     assert.equal(body.status, 'ok');
     assert.ok(body.reply.includes('Delhi'));
+    assert.match(body.reply.toLowerCase(), /child|kid/);
     assert.ok(Array.isArray(body.reasoningSteps) && body.reasoningSteps.length > 0);
     assert.ok(Array.isArray(body.suggestedFollowUps) && body.suggestedFollowUps.length === 3);
   });

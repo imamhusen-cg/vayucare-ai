@@ -15,16 +15,27 @@ export async function fetchGuidance(
   return response.json();
 }
 
+export interface ChatHistoryTurn {
+  role: 'user' | 'assistant';
+  text: string;
+}
+
 export async function sendChatMessage(
   question: string,
   profile: UserProfile,
   aqiData: AQIData,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  history: ChatHistoryTurn[] = []
 ): Promise<{ reply: string; followUps?: string[] }> {
   const response = await fetch('/api/gemini/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ question, profile, aqiData }),
+    body: JSON.stringify({
+      question,
+      profile,
+      aqiData,
+      history: history.slice(-4),
+    }),
     signal,
   });
   if (!response.ok) throw new Error('Chat error');

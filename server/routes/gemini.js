@@ -310,7 +310,18 @@ router.post('/guidance', async (req, res) => {
   }
 });
 
-// POST /api/gemini/chat — Single-turn copilot chat
+function sanitizeHistory(rawHistory) {
+  if (!Array.isArray(rawHistory)) return [];
+  return rawHistory
+    .slice(-6)
+    .filter((turn) => turn && (turn.role === 'user' || turn.role === 'assistant') && typeof turn.text === 'string' && turn.text.trim())
+    .map((turn) => ({
+      role: turn.role,
+      text: sanitizeString(turn.text, 300),
+    }));
+}
+
+// POST /api/gemini/chat — Multi-turn copilot chat
 router.post('/chat', async (req, res) => {
   const apiKey = process.env.GEMINI_API_KEY;
   const isKeyValid = isLikelyValidKey(apiKey);
@@ -318,6 +329,7 @@ router.post('/chat', async (req, res) => {
   const profile = sanitizeProfile(req.body?.profile);
   const aqiData = sanitizeAQIData(req.body?.aqiData);
   const question = sanitizeString(req.body?.question || '', 500);
+  const history = sanitizeHistory(req.body?.history);
 
   const reasoningSteps = buildReasoningSteps(profile, aqiData);
   const suggestedFollowUps = buildSuggestedFollowUps(aqiData, profile);
@@ -325,7 +337,7 @@ router.post('/chat', async (req, res) => {
   if (!isKeyValid) {
     return res.json({
       status: 'ok',
-      reply: getDynamicChatReply(question, profile, aqiData),
+      reply: getDynamicChatReply(question, profile, aqiData, history),
       reasoningSteps,
       suggestedFollowUps,
       source: 'Local Telemetry Rules • Grounded in CPCB Data',
@@ -338,8 +350,11 @@ router.post('/chat', async (req, res) => {
   const pm10 = aqiData.pm10;
   const cpcbCategory = aqiData.aqiCategory || getCPCBScaleCategory(aqi);
   const hasMetro = isMetroCity(city);
+  const historyBlock = history.length > 0
+    ? `\nRECENT CONVERSATION CONTEXT (last ${history.length} turns):\n${history.map((h) => `${h.role === 'user' ? 'User' : 'Copilot'}: ${h.text}`).join('\n')}\n`
+    : '';
 
-  const prompt = `You are VayuCare Copilot, an elite real-time atmospheric intelligence and air quality health advisor for citizens in India.
+  const prompt = `You are VayuCare Copilot, an elite real-time atmospheric intelligence and air quality health advisor for citizens in India.${historyBlock}
 
 STRICT GROUNDED TELEMETRY (LIVE CPCB SENSORS — CITE ACCURATELY):
 - Active City: ${city} (Sensor Station: "${aqiData.stationName}")
@@ -721,27 +736,29 @@ function getDynamicGuidance(profile, aqiData, note = '') {
   };
 }
 
-function getDynamicChatReply(question, profile, aqiData) {
+function getDynamicChatReply(question, profile, aqiData, history = []) {
   const city = aqiData.city || 'your area';
   const aqi = Number.isFinite(aqiData.aqi) ? aqiData.aqi : 120;
   const pm25 = Number.isFinite(aqiData.pm25) ? aqiData.pm25 : 80;
   const cpcbCategory = getCPCBScaleCategory(aqi);
   const qLower = (question || '').toLowerCase();
+  const prevTopics = history.map((h) => h.text.toLowerCase()).join(' ');
+  const combinedQuery = qLower.length < 35 && prevTopics ? `${prevTopics} ${qLower}` : qLower;
   const hasMetro = isMetroCity(city);
 
-  if (qLower.includes('kid') || qLower.includes('play') || qLower.includes('child')) {
-    return `In ${city} today, the AQI is ${aqi} (${cpcbCategory}). For children, outdoor exertion should be avoided or strictly limited to the afternoon (1–4 PM) because their breathing rate is higher and absorbs more PM2.5. Evening outdoor play is not recommended today.`;
+  if (combinedQuery.includes('kid') || combinedQuery.includes('play') || combinedQuery.includes('child')) {
+    return `In ${city} today, the AQI is ${aqi} (${cpcbCategory}). For children, outdoor exertion should be avoided or strictly limited to the afternoon (1–4 PM) because their breathing rate is higher (+25% lung intake factor). Evening outdoor play is not recommended today.`;
   }
-  if (qLower.includes('ventilate') || qLower.includes('window')) {
+  if (combinedQuery.includes('ventilate') || combinedQuery.includes('window')) {
     return `The best time to ventilate in ${city} today is between 1:00 PM and 3:30 PM for about 15 minutes when surface temperatures rise and smog disperses. Keep windows firmly closed during early morning and late evening when ambient pollution peaks.`;
   }
-  if (qLower.includes('commute') || qLower.includes('travel') || qLower.includes('bike') || qLower.includes('transit')) {
+  if (combinedQuery.includes('commute') || combinedQuery.includes('travel') || combinedQuery.includes('bike') || combinedQuery.includes('transit')) {
     const transitOption = hasMetro
       ? 'opt for the Metro or an enclosed AC bus to avoid road-level exhaust plumes'
       : 'opt for an enclosed AC city/electric bus or carpool with cabin recirculation on, avoiding open two-wheelers and autos';
     return `For commuting in ${city} at AQI ${aqi} (${cpcbCategory}), an N95 mask is essential for open transit, two-wheelers, and walking. If possible, ${transitOption}. Keep car ventilation on internal recirculation.`;
   }
-  if (qLower.includes('senior') || qLower.includes('elder') || qLower.includes('asthma')) {
+  if (combinedQuery.includes('senior') || combinedQuery.includes('elder') || combinedQuery.includes('asthma')) {
     return `With PM2.5 at ${pm25} µg/m³ (${cpcbCategory}), seniors and individuals with respiratory conditions should remain indoors with windows shut, avoid morning balcony walks, and ensure prescription inhalers are readily accessible.`;
   }
 

@@ -68,10 +68,11 @@ export function DiurnalAQIChart({ currentAQI }: { currentAQI: number }) {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Generate 24 hourly data points based on current AQI telemetry
+  // Anchor diurnal curve so the current local hour matches the live telemetry reading
+  const currentMult = DIURNAL_MULTIPLIERS[currentHour] || 1;
   const data: DiurnalPoint[] = useMemo(() => {
     return DIURNAL_MULTIPLIERS.map((mult, h) => {
-      const aqi = Math.round(baseAQI * mult);
+      const aqi = Math.round(baseAQI * (mult / currentMult));
       const isMiddaySafe = h >= 12 && h <= 16;
       const isMorningPeak = h >= 6 && h <= 9;
       const isEveningPeak = h >= 18 && h <= 21;
@@ -87,7 +88,7 @@ export function DiurnalAQIChart({ currentAQI }: { currentAQI: number }) {
         isEveningPeak,
       };
     });
-  }, [baseAQI]);
+  }, [baseAQI, currentMult]);
 
   // SVG dimensions
   const svgWidth = 600;
@@ -192,10 +193,10 @@ export function DiurnalAQIChart({ currentAQI }: { currentAQI: number }) {
           </div>
           <div>
             <h3 className="text-xs font-semibold text-ink-100 tracking-tight flex items-center gap-1.5">
-              24-Hour Diurnal AQI & Safe Window
+              24-Hour Diurnal Pattern & Safe Window
             </h3>
             <p className="text-[10px] text-ink-400">
-              Hover or tap across hours to preview diurnal inversion & activity verdicts
+              Typical urban diurnal pattern (model estimate anchored to current hour, not a weather forecast)
             </p>
           </div>
         </div>

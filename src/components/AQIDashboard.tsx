@@ -77,6 +77,8 @@ export function AQIDashboard() {
 
   const whoMult = getWHOMultiplier(aqiData.pm25);
   const recordedTime = aqiData.stationRecordedAt || aqiData.lastUpdated;
+  const ageHours = (Date.now() - new Date(recordedTime).getTime()) / 3600000;
+  const isStaleReading = Number.isFinite(ageHours) && ageHours >= 3;
   const cpcbCategory = getCPCBScaleCategory(aqi);
   const clampedPercent = Math.min(Math.max((aqi / 500) * 100, 1.5), 98.5);
   const ambientGlow = getAQIAmbientGlowColor(aqi);
@@ -90,6 +92,23 @@ export function AQIDashboard() {
       />
 
       <div className="relative z-10 surface-card space-y-5">
+        {/* Inline Refresh Failure Banner while Cached Data remains visible */}
+        {aqiError && (
+          <div
+            role="status"
+            className="flex items-center justify-between gap-3 px-3.5 py-2 rounded-xl bg-red-500/10 border border-red-400/25 text-red-200 text-xs"
+          >
+            <span>{aqiError}</span>
+            <button
+              type="button"
+              onClick={refreshAQI}
+              className="px-2.5 py-1 rounded-md bg-red-500/20 hover:bg-red-500/30 text-red-100 font-medium flex-shrink-0"
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
         {/* Prominent Demo / Fallback Disclosure Banner */}
         {(aqiData.isDemoData || aqiData.status === 'fallback') && (
           <div
@@ -153,10 +172,21 @@ export function AQIDashboard() {
             </div>
 
             <div className="hidden sm:flex items-center gap-1.5 text-xs text-ink-400 font-mono">
-              <Clock className="w-3.5 h-3.5 text-ink-500" />
+              <Clock className={`w-3.5 h-3.5 ${isStaleReading ? 'text-amber-400' : 'text-ink-500'}`} />
               <span>{formatTimestamp(recordedTime)}</span>
-              <span className="text-ink-500 text-[11px] px-1.5 py-0.5 rounded bg-ink-850 border border-ink-100/[0.06]">
-                {formatTimeAgo(recordedTime)}
+              <span
+                className={`text-[11px] px-1.5 py-0.5 rounded border ${
+                  isStaleReading
+                    ? 'text-amber-300 bg-amber-500/15 border-amber-400/30 font-medium'
+                    : 'text-ink-400 bg-ink-850 border-ink-100/[0.06]'
+                }`}
+                title={isStaleReading ? 'Station reading is over 3 hours old' : undefined}
+              >
+                {aqiData.cachedAt
+                  ? `Cached ${formatTimeAgo(aqiData.cachedAt)}${isLoadingAQI ? ' • Refreshing…' : ''}`
+                  : isStaleReading
+                    ? `Station reading ${Math.floor(ageHours)}h ago (stale)`
+                    : `Station ${formatTimeAgo(recordedTime)}`}
               </span>
             </div>
           </div>

@@ -13,6 +13,7 @@ export interface AQIData {
   stationUid?: number;
   pm25Estimated?: boolean;
   pm10Estimated?: boolean;
+  cachedAt?: string;
   stationRecordedAt?: string;
   feedSyncedAt?: string;
   lastUpdated: string;
@@ -40,6 +41,7 @@ export interface UserProfile {
   hasRespiratoryIssues: boolean;
   commuteMode: CommuteMode;
   hasAirPurifier: boolean;
+  hasMask?: boolean;
   targetAudience?: 'rwa' | 'family' | 'school';
 }
 

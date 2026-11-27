@@ -26,11 +26,14 @@ interface AppContextType extends AppState {
   selectStation: (uid: number, stationCity?: string) => Promise<void>;
   selectCurrentLocation: () => Promise<void>;
   addChatMessage: (msg: ChatMessage) => void;
+  clearChat: () => void;
   setActiveTab: (tab: 'routine' | 'indoor' | 'sustainable') => void;
   setChatOpen: (open: boolean) => void;
 }
 
 const STORAGE_KEY = 'vayucare_profile';
+const AQI_CACHE_PREFIX = 'vayucare_aqi_cache_v1:';
+const CHAT_STORAGE_KEY = 'vayucare_chat_v1';
 
 const defaultProfile: UserProfile = {
   city: 'Delhi',
@@ -68,6 +71,56 @@ function persistProfile(profile: UserProfile) {
   }
 }
 
+function loadCachedAQI(city: string): AQIData | null {
+  try {
+    const raw = localStorage.getItem(`${AQI_CACHE_PREFIX}${city.trim().toLowerCase()}`);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as AQIData;
+    if (!parsed || typeof parsed.aqi !== 'number') return null;
+    return {
+      ...parsed,
+      cachedAt: parsed.cachedAt || parsed.feedSyncedAt || parsed.lastUpdated,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function saveCachedAQI(city: string, data: AQIData) {
+  try {
+    const toStore: AQIData = { ...data, cachedAt: undefined };
+    localStorage.setItem(`${AQI_CACHE_PREFIX}${city.trim().toLowerCase()}`, JSON.stringify(toStore));
+  } catch {
+    // Ignore storage quota or private-mode restrictions
+  }
+}
+
+function loadSavedChat(): ChatMessage[] {
+  try {
+    const raw = localStorage.getItem(CHAT_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.slice(-20).map((m) => ({
+      id: String(m.id || ''),
+      role: m.role === 'user' ? 'user' : 'assistant',
+      text: String(m.text || ''),
+      timestamp: m.timestamp ? new Date(m.timestamp) : new Date(),
+      followUps: Array.isArray(m.followUps) ? m.followUps.slice(0, 3) : undefined,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+function persistChat(messages: ChatMessage[]) {
+  try {
+    localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(messages.slice(-20)));
+  } catch {
+    // Ignore storage quota or private-mode restrictions
+  }
+}
+
 function isAbortError(err: unknown): boolean {
   return err instanceof DOMException && err.name === 'AbortError';
 }
@@ -79,7 +132,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [aqiData, setAqiData] = useState<AQIData | null>(null);
   const [guidanceData, setGuidanceData] = useState<GuidanceData | null>(null);
   const [guidanceSource, setGuidanceSource] = useState('');
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>(loadSavedChat);
   const [isLoadingAQI, setIsLoadingAQI] = useState(false);
   const [isLoadingGuidance, setIsLoadingGuidance] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
@@ -135,6 +188,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     aqiAbortRef.current = controller;
     const reqId = ++aqiReqIdRef.current;
 
+    // Instant load: immediately surface last-known city reading from localStorage while refreshing
+    const cached = loadCachedAQI(activeProfile.city);
+    if (cached) {
+      setAqiData(cached);
+    }
+
     setIsLoadingAQI(true);
     setAqiError(null);
     lastFetchedCityRef.current = activeProfile.city;
@@ -142,11 +201,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     try {
       const data = await fetchAQI(activeProfile.city, controller.signal);
       if (reqId !== aqiReqIdRef.current) return;
-      setAqiData(data);
-      await loadGuidance(profileRef.current, data);
+      const freshData: AQIData = { ...data, cachedAt: undefined };
+      saveCachedAQI(activeProfile.city, freshData);
+      setAqiData(freshData);
+      await loadGuidance(profileRef.current, freshData);
     } catch (err) {
       if (isAbortError(err) || reqId !== aqiReqIdRef.current) return;
-      setAqiError('Could not load AQI data. Showing estimated values.');
+      setAqiError(
+        cached
+          ? 'Could not refresh live telemetry — showing cached reading.'
+          : 'Could not load AQI data. Showing estimated values.'
+      );
     } finally {
       if (reqId === aqiReqIdRef.current) {
         setIsLoadingAQI(false);
@@ -276,7 +341,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [setProfile]);
 
   const addChatMessage = useCallback((msg: ChatMessage) => {
-    setChatMessages(prev => [...prev, msg]);
+    setChatMessages(prev => {
+      const next = [...prev, msg].slice(-20);
+      persistChat(next);
+      return next;
+    });
+  }, []);
+
+  const clearChat = useCallback(() => {
+    setChatMessages([]);
+    persistChat([]);
   }, []);
 
   // Load AQI on mount and whenever city changes via search/quick-chip/preset
@@ -328,6 +402,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     selectStation,
     selectCurrentLocation,
     addChatMessage,
+    clearChat,
     setActiveTab,
     setChatOpen,
   }), [
@@ -349,6 +424,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     selectStation,
     selectCurrentLocation,
     addChatMessage,
+    clearChat,
   ]);
 
   return (

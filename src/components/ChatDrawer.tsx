@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { 
   X, Send, Share2, Copy, Check, Sparkles, 
-  Bot, Wind, Compass, HeartPulse, Baby, MapPin 
+  Bot, Wind, Compass, HeartPulse, Baby, MapPin, Trash2 
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { sendChatMessage } from '../services/geminiService';
@@ -86,7 +86,7 @@ function renderCopilotMessage(text: string) {
 }
 
 export function ChatDrawer() {
-  const { chatOpen, setChatOpen, chatMessages, addChatMessage, profile, aqiData } = useApp();
+  const { chatOpen, setChatOpen, chatMessages, addChatMessage, clearChat, profile, aqiData } = useApp();
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -145,7 +145,8 @@ export function ChatDrawer() {
     setIsTyping(true);
 
     try {
-      const { reply, followUps } = await sendChatMessage(text, profile, aqiData);
+      const historyTurns = chatMessages.slice(-4).map((m) => ({ role: m.role, text: m.text }));
+      const { reply, followUps } = await sendChatMessage(text, profile, aqiData, undefined, historyTurns);
       if (reply && reply.trim()) {
         const defaultFollowUps = [
           profile.hasKids
@@ -240,6 +241,18 @@ export function ChatDrawer() {
           </div>
 
           <div className="flex items-center gap-1">
+            {chatMessages.length > 0 && (
+              <button
+                type="button"
+                onClick={clearChat}
+                className="px-2 py-1 text-[11px] text-ink-400 hover:text-ink-100 hover:bg-ink-850 rounded-lg transition-colors inline-flex items-center gap-1"
+                title="Clear chat history"
+                aria-label="Clear chat"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span className="hidden xs:inline">Clear chat</span>
+              </button>
+            )}
             <button
               onClick={() => setIsAdvisoryModalOpen(true)}
               className="p-1.5 text-ink-400 hover:text-ink-100 hover:bg-ink-850 rounded-lg transition-colors"
