@@ -52,24 +52,29 @@ describe('Official CPCB IND-AQI PM2.5 Conversion', () => {
   });
 });
 
-describe('Physical Particulate Constraints (PM10 > PM2.5)', () => {
-  it('strictly enforces PM10 is greater than PM2.5 when PM10 is missing', () => {
+describe('Physical Particulate Constraints (Honest Station Pass-through vs Missing Fallback)', () => {
+  it('estimates PM2.5 and PM10 from CPCB breakpoints and marks estimated flags when sensor readings are missing', () => {
     const res = enforceParticulatePhysics(150, null, null);
     expect(res.pm25).toBe(75);
-    expect(res.pm10).toBeGreaterThan(res.pm25);
+    expect(res.pm25Estimated).toBe(true);
     expect(res.pm10).toBe(Math.round(75 * 1.55));
+    expect(res.pm10Estimated).toBe(true);
   });
 
-  it('corrects invalid sensor packets where reported PM10 is less than PM2.5', () => {
+  it('passes real reported sensor readings through untouched without silent rewriting', () => {
     const res = enforceParticulatePhysics(200, 90, 60);
-    expect(res.pm10).toBeGreaterThan(res.pm25);
-    expect(res.pm10).toBe(Math.round(90 * 1.55));
+    expect(res.pm25).toBe(90);
+    expect(res.pm25Estimated).toBe(false);
+    expect(res.pm10).toBe(60);
+    expect(res.pm10Estimated).toBe(false);
   });
 
   it('preserves realistic sensor packets where PM10 is already higher', () => {
     const res = enforceParticulatePhysics(200, 90, 140);
     expect(res.pm25).toBe(90);
     expect(res.pm10).toBe(140);
+    expect(res.pm25Estimated).toBe(false);
+    expect(res.pm10Estimated).toBe(false);
   });
 });
 

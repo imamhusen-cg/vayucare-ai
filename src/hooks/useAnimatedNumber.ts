@@ -21,7 +21,12 @@ export function useAnimatedNumber(
     const startVal = currentValRef.current;
     if (startVal === target) return;
 
-    if (duration <= 0) {
+    const prefersReducedMotion =
+      typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    if (duration <= 0 || prefersReducedMotion) {
       currentValRef.current = target;
       setDisplayValue(target);
       return;

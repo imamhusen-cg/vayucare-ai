@@ -10,6 +10,9 @@ export interface AQIData {
   so2: number | null;
   dominentPol: string;
   stationName: string;
+  stationUid?: number;
+  pm25Estimated?: boolean;
+  pm10Estimated?: boolean;
   stationRecordedAt?: string;
   feedSyncedAt?: string;
   lastUpdated: string;

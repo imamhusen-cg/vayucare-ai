@@ -262,11 +262,11 @@ export function ChatDrawer() {
         {aqiData && (
           <div className="px-4 py-2.5 bg-ink-900/50 border-b border-ink-100/[0.06] flex-shrink-0 space-y-1.5">
             {/* Top row: City/Station + AQI + PM2.5 + Commute */}
-            <div className="flex items-center gap-1.5 overflow-x-auto text-[11px] pb-0.5">
+            <div className="flex items-center flex-wrap gap-1.5 text-[11px] pb-0.5">
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-ink-850 border border-ink-100/[0.08] text-ink-200 whitespace-nowrap">
                 <MapPin className="w-3 h-3 text-accent flex-shrink-0" />
                 <span className="font-medium text-ink-100">{aqiData.city}</span>
-                <span className="text-ink-500 truncate max-w-[120px]">• {aqiData.stationName}</span>
+                <span className="text-ink-400 truncate max-w-[140px]">• {aqiData.stationName}</span>
               </span>
 
               <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md border font-mono text-[10px] font-medium whitespace-nowrap ${getAQIBadgeClass(aqiNum)}`}>
@@ -274,7 +274,7 @@ export function ChatDrawer() {
               </span>
 
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-ink-850 border border-ink-100/[0.08] text-ink-300 font-mono text-[10px] whitespace-nowrap">
-                PM2.5: <strong className="text-ink-100">{aqiData.pm25 || '—'}</strong> µg/m³
+                PM2.5: <strong className="text-ink-100">{aqiData.pm25 ?? '—'}</strong> µg/m³{aqiData.pm25Estimated ? ' (est.)' : ''}
               </span>
 
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-ink-850 border border-ink-100/[0.08] text-ink-300 text-[10px] whitespace-nowrap">
@@ -284,11 +284,11 @@ export function ChatDrawer() {
             </div>
 
             {/* Bottom row: Active Household Profile Badges */}
-            <div className="flex items-center gap-1 overflow-x-auto text-[10px] font-mono">
-              <span className="text-ink-500 uppercase tracking-wider text-[9px] mr-0.5">Profile:</span>
+            <div className="flex items-center flex-wrap gap-1 text-[10px] font-mono">
+              <span className="text-ink-400 uppercase tracking-wider text-[10px] mr-0.5">Profile:</span>
               {profile.hasKids && (
                 <span className="px-1.5 py-0.2 rounded bg-amber-400/10 text-amber-300 border border-amber-400/20 whitespace-nowrap">
-                  Children (+50% lung rate)
+                  Children (+25% lung factor)
                 </span>
               )}
               {profile.hasSenior && (

@@ -42,7 +42,7 @@ export function normalizeCommuteMode(mode: string): 'Cycle' | 'Auto/Open Transit
  * Derives ambient PM2.5 in μg/m³ from AQIData strictly following CPCB IND-AQI sub-index breakpoints
  */
 export function getAmbientPM25(aqiData: AQIData | null): number {
-  const aqi = aqiData?.aqi || 150;
+  const aqi = aqiData?.aqi ?? 150;
   const rawPm25 = aqiData?.pm25 != null ? aqiData.pm25 : null;
   const rawPm10 = aqiData?.pm10 != null ? aqiData.pm10 : null;
   const { pm25 } = enforceParticulatePhysics(aqi, rawPm25, rawPm10);

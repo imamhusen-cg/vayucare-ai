@@ -59,7 +59,11 @@ function formatStationData(data, defaultCity = 'Unknown') {
   const iaqi = data.iaqi || {};
   const getPol = (key) => iaqi[key]?.v ?? null;
 
-  const { pm25, pm10 } = enforceParticulatePhysics(aqi, getPol('pm25'), getPol('pm10'));
+  const { pm25, pm10, pm25Estimated, pm10Estimated } = enforceParticulatePhysics(
+    aqi,
+    getPol('pm25'),
+    getPol('pm10')
+  );
 
   let cityName = defaultCity;
   let stationName = defaultCity;
@@ -85,6 +89,9 @@ function formatStationData(data, defaultCity = 'Unknown') {
     aqi,
     pm25,
     pm10,
+    pm25Estimated,
+    pm10Estimated,
+    stationUid: typeof data.idx === 'number' ? data.idx : undefined,
     no2: getPol('no2'),
     o3: getPol('o3'),
     co: getPol('co'),
@@ -110,6 +117,8 @@ function getDemoFallbackData(city, reason = null) {
     aqi,
     pm25,
     pm10,
+    pm25Estimated: true,
+    pm10Estimated: true,
     no2: 45,
     o3: 21,
     co: 1.1,

@@ -42,32 +42,27 @@ function aqiToCPCBPM25(aqi) {
 function enforceParticulatePhysics(aqi, rawPm25, rawPm10) {
   const cpcbExpected = aqiToCPCBPM25(aqi);
   let pm25;
+  let pm25Estimated = false;
 
-  // Never set PM2.5 equal to AQI number. Compute realistic PM2.5 from CPCB sub-index breakpoints.
-  if (
-    rawPm25 == null ||
-    !Number.isFinite(rawPm25) ||
-    rawPm25 <= 0 ||
-    Math.abs(rawPm25 - aqi) < 1.5 ||
-    Math.abs(rawPm25 - cpcbExpected) > cpcbExpected * 0.20
-  ) {
+  // Preserve actual reported sensor PM2.5; only estimate from CPCB breakpoints when unreported
+  if (rawPm25 == null || !Number.isFinite(rawPm25) || rawPm25 <= 0) {
     pm25 = cpcbExpected;
+    pm25Estimated = true;
   } else {
     pm25 = Math.round(rawPm25);
   }
 
-  // Strictly enforce PM10 > PM2.5 (typically 1.3x to 1.8x PM2.5)
+  // Preserve actual reported sensor PM10; only estimate when unreported
   let pm10;
-  const minPm10 = Math.round(pm25 * 1.30);
-  const maxPm10 = Math.round(pm25 * 1.80);
-
-  if (rawPm10 == null || !Number.isFinite(rawPm10) || rawPm10 <= pm25 || rawPm10 < minPm10 || rawPm10 > maxPm10) {
+  let pm10Estimated = false;
+  if (rawPm10 == null || !Number.isFinite(rawPm10) || rawPm10 <= 0) {
     pm10 = Math.round(pm25 * 1.55);
+    pm10Estimated = true;
   } else {
     pm10 = Math.round(rawPm10);
   }
 
-  return { pm25, pm10 };
+  return { pm25, pm10, pm25Estimated, pm10Estimated };
 }
 
 function isMetroCity(cityName) {

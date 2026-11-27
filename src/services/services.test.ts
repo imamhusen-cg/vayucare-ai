@@ -42,16 +42,27 @@ describe('Frontend API Services', () => {
     fetchMock.mockReset();
   });
 
-  it('fetchAQI sanitizes particulate physics when WAQI returns pm25 equal to aqi', async () => {
+  it('fetchAQI passes real station values through untouched and flags missing estimates', async () => {
     fetchMock.mockResolvedValueOnce({
       ok: true,
       json: async () => ({ ...aqiData, aqi: 153, pm25: 153, pm10: 50 }),
     });
 
-    const result = await fetchAQI('Delhi');
+    const realResult = await fetchAQI('Delhi');
     expect(fetchMock).toHaveBeenCalledWith('/api/aqi/city?city=Delhi', { signal: undefined });
-    expect(result.pm25).toBe(76);
-    expect(result.pm10).toBeGreaterThan(result.pm25!);
+    expect(realResult.pm25).toBe(153);
+    expect(realResult.pm10).toBe(50);
+    expect(realResult.pm25Estimated).toBe(false);
+    expect(realResult.pm10Estimated).toBe(false);
+
+    fetchMock.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ ...aqiData, aqi: 153, pm25: null, pm10: null }),
+    });
+    const estResult = await fetchAQI('Delhi');
+    expect(estResult.pm25).toBe(76);
+    expect(estResult.pm25Estimated).toBe(true);
+    expect(estResult.pm10Estimated).toBe(true);
   });
 
   it('fetchStationByUid and fetchAQIByGeo throw on non-ok responses', async () => {

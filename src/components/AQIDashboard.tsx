@@ -90,6 +90,22 @@ export function AQIDashboard() {
       />
 
       <div className="relative z-10 surface-card space-y-5">
+        {/* Prominent Demo / Fallback Disclosure Banner */}
+        {(aqiData.isDemoData || aqiData.status === 'fallback') && (
+          <div
+            role="status"
+            className="flex items-start gap-2.5 px-3.5 py-2.5 rounded-xl bg-amber-500/15 border border-amber-400/35 text-amber-200 text-xs"
+          >
+            <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+            <div>
+              <strong className="font-semibold text-amber-300">Demo / Offline Baseline Mode Active (AQI {aqi}): </strong>
+              <span>
+                Live WAQI station telemetry is unavailable{aqiData.fallbackReason ? ` (${aqiData.fallbackReason})` : ''}. Displaying simulated CPCB baseline values for demonstration.
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* Telemetry & Spatial View Header */}
         <div className="flex flex-wrap items-center justify-between gap-2.5 pb-3 border-b border-ink-100/[0.06]">
           <div className="flex items-center gap-2 flex-wrap">
@@ -234,10 +250,10 @@ export function AQIDashboard() {
             {/* Pollutant Breakdown Grid: 2x2 on phones, 4-column on tablet and desktop */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-2.5 pt-2 border-t border-ink-100/[0.06]">
               {[
-                { label: 'PM2.5 (Fine)', value: formatPollutant(aqiData.pm25), sub: 'Deep lung fraction', isDominant: aqiData.dominentPol === 'pm25' },
-                { label: 'PM10 (Coarse)', value: formatPollutant(aqiData.pm10), sub: 'Upper respiratory', isDominant: aqiData.dominentPol === 'pm10' },
-                { label: 'NO₂ (Nitrogen)', value: formatPollutant(aqiData.no2), sub: 'Vehicular emissions', isDominant: aqiData.dominentPol === 'no2' },
-                { label: 'O₃ (Ozone)', value: formatPollutant(aqiData.o3), sub: 'Photochemical smog', isDominant: aqiData.dominentPol === 'o3' },
+                { label: 'PM2.5 (Fine)', value: formatPollutant(aqiData.pm25), sub: aqiData.pm25Estimated ? 'Est. from AQI' : 'Measured station', isEstimated: Boolean(aqiData.pm25Estimated), isDominant: aqiData.dominentPol === 'pm25' },
+                { label: 'PM10 (Coarse)', value: formatPollutant(aqiData.pm10), sub: aqiData.pm10Estimated ? 'Est. from AQI' : 'Measured station', isEstimated: Boolean(aqiData.pm10Estimated), isDominant: aqiData.dominentPol === 'pm10' },
+                { label: 'NO₂ (Nitrogen)', value: formatPollutant(aqiData.no2), sub: 'Vehicular emissions', isEstimated: false, isDominant: aqiData.dominentPol === 'no2' },
+                { label: 'O₃ (Ozone)', value: formatPollutant(aqiData.o3), sub: 'Photochemical smog', isEstimated: false, isDominant: aqiData.dominentPol === 'o3' },
               ].map(pol => (
                 <div
                   key={pol.label}
@@ -246,9 +262,9 @@ export function AQIDashboard() {
                   }`}
                 >
                   <div className="flex items-center justify-between mb-1 gap-1">
-                    <span className="text-[10px] sm:text-[11px] text-ink-400 font-medium truncate">{pol.label}</span>
+                    <span className="text-[11px] text-ink-300 font-medium truncate">{pol.label}</span>
                     {pol.isDominant && (
-                      <span className="text-[8px] sm:text-[9px] font-mono text-accent uppercase tracking-wider px-1 py-0.2 rounded bg-accent/10 border border-accent/20 flex-shrink-0">
+                      <span className="text-[9px] font-mono text-accent uppercase tracking-wider px-1 py-0.2 rounded bg-accent/10 border border-accent/20 flex-shrink-0">
                         Lead
                       </span>
                     )}
@@ -256,7 +272,9 @@ export function AQIDashboard() {
                   <p className="text-sm sm:text-base font-semibold tabular-nums text-ink-100 font-mono">
                     {pol.value}
                   </p>
-                  <p className="text-[9px] sm:text-[10px] text-ink-500 mt-0.5 truncate">{pol.sub}</p>
+                  <p className={`text-[10px] mt-0.5 truncate ${pol.isEstimated ? 'text-amber-400/90 font-medium' : 'text-ink-400'}`}>
+                    {pol.sub}
+                  </p>
                 </div>
               ))}
             </div>

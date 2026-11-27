@@ -11,17 +11,14 @@ const geminiRouter = require('./routes/gemini');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Security & performance headers
-app.use((req, res, next) => {
-  res.setHeader('X-Content-Type-Options', 'nosniff');
-  res.setHeader('X-Frame-Options', 'DENY');
-  res.setHeader('X-XSS-Protection', '1; mode=block');
-  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-  next();
-});
+// Trust first proxy (required for accurate IP rate-limiting on Vercel)
+app.set('trust proxy', 1);
 
 // Middleware
-app.use(helmet({ frameguard: { action: 'deny' } }));
+app.use(helmet({
+  frameguard: { action: 'deny' },
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+}));
 app.use(compression());
 const allowedOrigins = [
   process.env.ALLOWED_ORIGIN,

@@ -4,12 +4,14 @@ import { enforceParticulatePhysics } from '../utils/aqi';
 function sanitizeAQIPayload(data: AQIData): AQIData {
   if (!data) return data;
   const aqi = typeof data.aqi === 'number' ? data.aqi : Number(data.aqi) || 0;
-  const { pm25, pm10 } = enforceParticulatePhysics(aqi, data.pm25, data.pm10);
+  const { pm25, pm10, pm25Estimated, pm10Estimated } = enforceParticulatePhysics(aqi, data.pm25, data.pm10);
   return {
     ...data,
     aqi,
     pm25,
     pm10,
+    pm25Estimated: data.pm25Estimated ?? pm25Estimated,
+    pm10Estimated: data.pm10Estimated ?? pm10Estimated,
   };
 }
 

@@ -28,8 +28,8 @@ jobs:
       - name: Install Frontend Dependencies
         run: npm ci
 
-      - name: Run Unit & Integration Test Suites (Vitest)
-        run: npm test
+      - name: Run Unit & Integration Test Suites with Coverage (Vitest)
+        run: npm run test:coverage
 
       - name: Verify TypeScript Type Checking & Production Build
         run: npm run build

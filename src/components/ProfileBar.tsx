@@ -168,6 +168,11 @@ export function ProfileBar() {
         hasAirPurifier={profile.hasAirPurifier}
         activeNormalizedCommute={activeNormalizedCommute}
       />
+
+      {/* Privacy & Data Consent Disclosure */}
+      <p className="text-[11px] text-ink-400 leading-relaxed pt-1 border-t border-ink-100/[0.06]">
+        Privacy note: Household flags are stored only in your browser&apos;s <span className="font-mono text-ink-300">localStorage</span> and sent strictly alongside city telemetry to Google Gemini when generating advice.
+      </p>
     </div>
   );
 }

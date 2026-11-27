@@ -134,44 +134,36 @@ export function aqiToCPCBPM25(aqi: number): number {
 }
 
 /**
- * Enforces atmospheric particulate physics:
- * 1. PM2.5 is never set equal to the AQI number (corrects WAQI sub-index bug).
- * 2. PM10 is strictly greater than PM2.5 (typically 1.3x to 1.8x PM2.5 in Indian urban airsheds).
+ * Passes through real measured particulate readings when reported by the station.
+ * Falls back to CPCB IND-AQI sub-index estimation only when a reading is missing,
+ * and surfaces `pm25Estimated` / `pm10Estimated` flags so telemetry remains transparent.
  */
 export function enforceParticulatePhysics(
   aqi: number,
   rawPm25: number | null,
   rawPm10: number | null
-): { pm25: number; pm10: number } {
+): { pm25: number; pm10: number; pm25Estimated: boolean; pm10Estimated: boolean } {
   const cpcbExpected = aqiToCPCBPM25(aqi);
   let pm25: number;
+  let pm25Estimated = false;
 
-  // Never set PM2.5 equal to AQI number. Strictly compute realistic PM2.5 from CPCB sub-index breakpoints
-  // (e.g. AQI 85 ≈ 51 μg/m³, AQI 153 ≈ 76 μg/m³, AQI 198 ≈ 89 μg/m³)
-  if (
-    rawPm25 == null ||
-    isNaN(rawPm25) ||
-    rawPm25 <= 0 ||
-    Math.abs(rawPm25 - aqi) < 1.5 ||
-    Math.abs(rawPm25 - cpcbExpected) > cpcbExpected * 0.20
-  ) {
+  if (rawPm25 == null || !Number.isFinite(rawPm25) || rawPm25 <= 0) {
     pm25 = cpcbExpected;
+    pm25Estimated = true;
   } else {
     pm25 = Math.round(rawPm25);
   }
 
-  // Strictly enforce PM10 > PM2.5 (typically 1.3x to 1.8x PM2.5)
   let pm10: number;
-  const minPm10 = Math.round(pm25 * 1.30);
-  const maxPm10 = Math.round(pm25 * 1.80);
-
-  if (rawPm10 == null || isNaN(rawPm10) || rawPm10 <= pm25 || rawPm10 < minPm10 || rawPm10 > maxPm10) {
+  let pm10Estimated = false;
+  if (rawPm10 == null || !Number.isFinite(rawPm10) || rawPm10 <= 0) {
     pm10 = Math.round(pm25 * 1.55);
+    pm10Estimated = true;
   } else {
     pm10 = Math.round(rawPm10);
   }
 
-  return { pm25, pm10 };
+  return { pm25, pm10, pm25Estimated, pm10Estimated };
 }
 
 /**

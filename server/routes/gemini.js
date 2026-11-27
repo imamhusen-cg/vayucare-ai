@@ -1,5 +1,6 @@
 const express = require('express');
 const axios = require('axios');
+const rateLimit = require('express-rate-limit');
 const {
   getCPCBScaleCategory,
   enforceParticulatePhysics,
@@ -9,6 +10,16 @@ const {
 const { getDynamicAdvisory } = require('../utils/advisories');
 
 const router = express.Router();
+
+// Dedicated tighter rate limiter for GenAI endpoints to protect Gemini quota
+const geminiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many AI requests, please wait a minute before retrying.' },
+});
+router.use(geminiLimiter);
 
 const GEMINI_MODELS = [
   process.env.GEMINI_MODEL,
@@ -29,11 +40,18 @@ function isLikelyValidKey(key) {
   return true;
 }
 
-async function callGemini(apiKey, contents, generationConfig = {}, timeout = 25000) {
+async function callGemini(apiKey, contents, generationConfig = {}, maxTotalMs = 18000) {
   let lastErr;
+  const deadline = Date.now() + maxTotalMs;
+
   for (const model of GEMINI_MODELS) {
     const attemptJsonModes = generationConfig.responseMimeType ? [true, false] : [false];
     for (const withJsonMime of attemptJsonModes) {
+      const remainingMs = deadline - Date.now();
+      if (remainingMs < 1500) {
+        throw lastErr || new Error('Gemini overall latency cap exceeded');
+      }
+
       try {
         const cfg = { ...generationConfig };
         if (!withJsonMime) {
@@ -44,7 +62,7 @@ async function callGemini(apiKey, contents, generationConfig = {}, timeout = 250
           url,
           { contents, generationConfig: cfg },
           {
-            timeout,
+            timeout: remainingMs,
             headers: {
               'Content-Type': 'application/json',
               'x-goog-api-key': apiKey,
@@ -89,23 +107,35 @@ function sanitizeString(str, maxLen = 200) {
   return str.slice(0, maxLen).replace(/[<>]/g, '').trim();
 }
 
+const ALLOWED_COMMUTE_MODES = new Set([
+  'Cycle',
+  'Auto/Open Transit',
+  'Car with AC',
+  'Metro',
+  'Work From Home',
+  'Car',
+  'Two-Wheeler',
+  'Public Transit',
+]);
+
 function sanitizeProfile(profile) {
+  const rawMode = sanitizeString(profile?.commuteMode || 'Car with AC', 50);
   return {
     city: sanitizeString(profile?.city || 'Delhi', 50),
     hasKids: Boolean(profile?.hasKids),
     hasSenior: Boolean(profile?.hasSenior),
     hasRespiratoryIssues: Boolean(profile?.hasRespiratoryIssues),
-    commuteMode: sanitizeString(profile?.commuteMode || 'Car with AC', 50),
+    commuteMode: ALLOWED_COMMUTE_MODES.has(rawMode) ? rawMode : 'Car with AC',
     hasAirPurifier: Boolean(profile?.hasAirPurifier),
   };
 }
 
 function sanitizeAQIData(aqiData) {
   const rawAqi = Number(aqiData?.aqi);
-  const aqi = Number.isFinite(rawAqi) ? rawAqi : 0;
+  const aqi = Number.isFinite(rawAqi) ? Math.min(1000, Math.max(0, Math.round(rawAqi))) : 0;
   const rawPm25 = aqiData?.pm25 != null ? Number(aqiData.pm25) : null;
   const rawPm10 = aqiData?.pm10 != null ? Number(aqiData.pm10) : null;
-  const { pm25, pm10 } = enforceParticulatePhysics(aqi, rawPm25, rawPm10);
+  const { pm25, pm10, pm25Estimated, pm10Estimated } = enforceParticulatePhysics(aqi, rawPm25, rawPm10);
 
   const rawNo2 = Number(aqiData?.no2);
   const rawO3 = Number(aqiData?.o3);
@@ -115,8 +145,10 @@ function sanitizeAQIData(aqiData) {
     aqi,
     pm25,
     pm10,
-    no2: Number.isFinite(rawNo2) ? rawNo2 : 0,
-    o3: Number.isFinite(rawO3) ? rawO3 : 0,
+    pm25Estimated: Boolean(aqiData?.pm25Estimated ?? pm25Estimated),
+    pm10Estimated: Boolean(aqiData?.pm10Estimated ?? pm10Estimated),
+    no2: Number.isFinite(rawNo2) && rawNo2 >= 0 ? Math.min(1000, rawNo2) : 0,
+    o3: Number.isFinite(rawO3) && rawO3 >= 0 ? Math.min(1000, rawO3) : 0,
     aqiCategory: sanitizeString(aqiData?.aqiCategory || getCPCBScaleCategory(aqi), 50),
     lastUpdated: sanitizeString(aqiData?.lastUpdated || '', 50),
     stationName: sanitizeString(aqiData?.stationName || '', 100),
@@ -170,7 +202,7 @@ function ensureTwoSentencesGuidance(parsed, profile, aqiData) {
   }
 
   if (isShortOrStub(parsed.routinePlanner.errandBundling)) {
-    parsed.routinePlanner.errandBundling = 'Batch all grocery purchases, pharmacy visits, and outdoor tasks into a single 35-minute errand run between 1:00 PM and 3:30 PM. Grouping errands during this midday trough reduces cumulative PM2.5 airway exposure by over 45% compared to fragmented trips.';
+    parsed.routinePlanner.errandBundling = 'Batch all grocery purchases, pharmacy visits, and outdoor tasks into a single 35-minute errand run between 1:00 PM and 3:30 PM. Grouping errands during this midday trough substantially lowers cumulative PM2.5 airway exposure compared to fragmented trips.';
   }
 
   return parsed;
@@ -181,16 +213,17 @@ function buildReasoningSteps(profile, aqiData) {
   const aqi = Number.isFinite(aqiData.aqi) ? aqiData.aqi : 100;
   const pm25 = aqiData.pm25 != null ? aqiData.pm25 : Math.round(aqi * 0.7);
   const station = aqiData.stationName || `${city} CPCB Sensor`;
+  const pmTag = aqiData.pm25Estimated ? ' (est. from AQI)' : '';
 
   const vulnerableList = [];
-  if (profile.hasKids) vulnerableList.push('Children (+50% lung intake)');
+  if (profile.hasKids) vulnerableList.push('Children (+25% lung intake factor)');
   if (profile.hasSenior) vulnerableList.push('Senior Citizens (cardiovascular sensitivity)');
   if (profile.hasRespiratoryIssues) vulnerableList.push('Asthma/COPD airway hyper-reactivity');
-  vulnerableList.push(`Daily Commute: ${profile.commuteMode || 'Two-Wheeler'}`);
+  vulnerableList.push(`Daily Commute: ${profile.commuteMode || 'Car with AC'}`);
   if (profile.hasAirPurifier) vulnerableList.push('HEPA Filtration Equipped');
 
   return [
-    `Ingested CPCB Telemetry: AQI ${aqi} (${aqiData.aqiCategory || 'Active'}), PM2.5 ${pm25} µg/m³ at station "${station}"`,
+    `Ingested CPCB Telemetry: AQI ${aqi} (${aqiData.aqiCategory || 'Active'}), PM2.5 ${pm25} µg/m³${pmTag} at station "${station}"`,
     `Profile Risk Matrix: ${vulnerableList.join(' • ')}`,
     `Diurnal Inversion Analysis: Morning & evening boundary layer compressed; particulate suspension calculated for ${city}`,
     'Safety Alignment: Synthesized mitigation protocol grounded in CPCB / MoEFCC National AQI Health Criteria',
@@ -311,17 +344,17 @@ router.post('/chat', async (req, res) => {
 STRICT GROUNDED TELEMETRY (LIVE CPCB SENSORS — CITE ACCURATELY):
 - Active City: ${city} (Sensor Station: "${aqiData.stationName}")
 - National Air Quality Index (IND-AQI): ${aqi} (${cpcbCategory})
-- Fine Particulate (PM2.5): ${pm25} µg/m³ (WHO 24h Guideline: 15 µg/m³)
-- Coarse Particulate (PM10): ${pm10} µg/m³
+- Fine Particulate (PM2.5): ${pm25} µg/m³${aqiData.pm25Estimated ? ' (estimated from AQI)' : ''} (WHO 24h Guideline: 15 µg/m³)
+- Coarse Particulate (PM10): ${pm10} µg/m³${aqiData.pm10Estimated ? ' (estimated from AQI)' : ''}
 - Photochemical Smog: NO2 ${aqiData.no2} µg/m³, O3 ${aqiData.o3} µg/m³
 - City Metro Rail Available: ${hasMetro ? 'YES (Operational Metro rail available)' : 'NO (No Metro rail in this city — recommend AC electric buses, carpool with recirculation, or off-peak travel instead)'}
 
 USER HOUSEHOLD RISK PROFILE:
 - Daily Commute Mode: ${profile.commuteMode}
-- Young Children at Home: ${profile.hasKids ? 'YES (higher minute ventilation rate, +50% lung dose per kg)' : 'NO'}
+- Young Children at Home: ${profile.hasKids ? 'YES (higher minute ventilation rate, +25% lung dose factor per kg)' : 'NO'}
 - Senior Citizens at Home: ${profile.hasSenior ? 'YES (elevated cardiovascular and stroke susceptibility)' : 'NO'}
 - Asthma / COPD / Respiratory Condition: ${profile.hasRespiratoryIssues ? 'YES (airway hyper-reactivity to PM2.5 and nitrogen dioxide)' : 'NO'}
-- HEPA Air Purifier: ${profile.hasAirPurifier ? 'YES (HEPA equipped, ~85% indoor PM2.5 reduction)' : 'NO (No purifier, rely on damp-mopping and room sealing)'}
+- HEPA Air Purifier: ${profile.hasAirPurifier ? 'YES (HEPA filtration active indoors)' : 'NO (No purifier, rely on damp-mopping and room sealing)'}
 
 USER QUESTION: "${question}"
 
@@ -387,7 +420,7 @@ router.post('/advisory', async (req, res) => {
 
   const audienceDirectives = {
     school: `TARGET AUDIENCE: School Administration, Teachers, and Parents.
-Key Focus: Morning student bus and van commute exposure, mandatory N95 masking, suspension of outdoor morning assemblies and physical education (PT) drills, classroom window closures during inversion hours, sports day postponement, and notifying parents of child respiratory vulnerability (+50% higher air intake per kg).`,
+Key Focus: Morning student bus and van commute exposure, mandatory N95 masking, suspension of outdoor morning assemblies and physical education (PT) drills, classroom window closures during inversion hours, sports day postponement, and notifying parents of child respiratory vulnerability (+25% higher minute ventilation per kg).`,
     family: `TARGET AUDIENCE: Household, Families, and Senior Citizens.
 Key Focus: Postponing elder morning walks until after 12:00 PM, keeping prescription inhalers/bronchodilators accessible, running bedroom HEPA air purifiers, damp mopping floors to bind fine particulate dust, avoiding incense/dhoop, and sealing drafty doors and windows facing roads.`,
     rwa: `TARGET AUDIENCE: Neighborhood Resident Welfare Association (RWA) and Society Residents.
@@ -554,18 +587,18 @@ function getDynamicGuidance(profile, aqiData, note = '') {
   let commuteAdvice;
   if (profile.commuteMode === 'Two-Wheeler' || profile.commuteMode === 'Auto/Open Transit') {
     commuteAdvice = hasMetro
-      ? `Riding open transport/two-wheeler in ${city} at AQI ${aqi} exposes you to ~3.5× more PM2.5 than an enclosed cabin. Consider switching to the Metro or carpooling with AC recirculation today.`
-      : `Riding open transport in ${city} at AQI ${aqi} exposes you to ~3.5× more PM2.5. Opt for an enclosed AC electric/city bus or carpool with cabin air recirculation on.`;
+      ? `Riding open transport/two-wheeler in ${city} at AQI ${aqi} places you directly in street-level exhaust plumes. Switching to sealed Metro transit or carpooling with AC recirculation significantly cuts personal exposure.`
+      : `Riding open transport in ${city} at AQI ${aqi} exposes you directly to roadside exhaust. Opt for an enclosed AC electric/city bus or carpool with cabin air recirculation on.`;
   } else if (profile.commuteMode === 'Metro' || profile.commuteMode === 'Metro/Public Transit') {
     commuteAdvice = hasMetro
-      ? `Public transit in ${city} via Metro is currently the lowest-exposure motorized option today. Wear an N95 mask on outdoor platforms.`
+      ? `Public transit in ${city} via Metro reduces exposure compared to open road transit today. Wear an N95 mask on outdoor platforms.`
       : `In ${city}, opt for enclosed AC city/electric buses with air filtration rather than open autos or two-wheelers.`;
   } else if (profile.commuteMode === 'Cycle') {
-    commuteAdvice = `Strenuous cycling in ${city} at AQI ${aqi} increases minute ventilation rate 4-fold. Postpone long cycling routes until air clears.`;
+    commuteAdvice = `Strenuous cycling in ${city} at AQI ${aqi} sharply elevates your breathing rate and particulate inhalation. Postpone long cycling routes until air clears.`;
   } else if (profile.commuteMode === 'Work From Home') {
     commuteAdvice = 'Working from home eliminates roadside transit exposure completely today. Maintain clean indoor air.';
   } else {
-    commuteAdvice = 'For car commutes, maintain cabin air on recirculation mode with high fan speed to filter out ~85% of ambient fine particles.';
+    commuteAdvice = 'For car commutes, keep windows closed and maintain cabin air on recirculation mode to meaningfully reduce ambient particulate intake.';
   }
 
   return {
@@ -640,9 +673,9 @@ function getDynamicGuidance(profile, aqiData, note = '') {
           'Cross-ventilate the kitchen toward the utility balcony rather than into living areas',
         ],
         plantSuggestions: [
-          'Snake Plant / Sansevieria (Filters formaldehyde and releases oxygen overnight)',
-          'Areca Palm (Acts as natural humidifier and particulate binder)',
-          'Spider Plant (Resilient air filter for carbon monoxide and xylene)',
+          'Snake Plant / Sansevieria (Botanical greenery & humidity comfort; note: mechanical HEPA filtration handles PM2.5)',
+          'Areca Palm (Gentle indoor humidity support alongside damp-mopping for particulate control)',
+          'Spider Plant (Low-maintenance indoor foliage to complement active ventilation hygiene)',
         ],
       },
       sustainableAlternatives: [
@@ -651,31 +684,31 @@ function getDynamicGuidance(profile, aqiData, note = '') {
             ? `Switch ${profile.commuteMode} commute to Metro or shared electric bus`
             : `Switch ${profile.commuteMode} commute to AC electric city bus or carpool with recirculation`,
           category: 'transport',
-          healthImpact: 'Reduces personal PM2.5 lung deposition by up to 65% during peak rush hour',
-          envImpact: 'Prevents ~2.4 kg of CO2 and 4.2g of NOx tailpipe emissions per 15 km round trip',
+          healthImpact: 'Substantially lowers personal PM2.5 inhalation compared to open roadside transit during peak rush hour',
+          envImpact: 'Helps curb vehicle tailpipe CO2 and NOx emissions across shared urban corridors',
           difficulty: 'easy',
           urgency: 'today',
         },
         {
           action: 'Shift outdoor cardio into 30-minute indoor bodyweight or yoga routine',
           category: 'lifestyle',
-          healthImpact: `Saves lungs from inhaling ~${Math.round(pm25 * 0.9)} μg of fine particulates that deep athletic breathing would pull into alveoli`,
-          envImpact: 'Zero emission lifestyle adaptation; reduces road congestion during peak hours',
+          healthImpact: `Avoids deep exercise-induced inhalation of ambient PM2.5 (${pm25} μg/m³) into lower airways`,
+          envImpact: 'Zero-emission lifestyle adaptation that reduces peak-hour road congestion',
           difficulty: 'easy',
           urgency: 'today',
         },
         {
           action: 'Seal door and window perimeter gaps with weather-stripping foam',
           category: 'indoor',
-          healthImpact: 'Prevents 40–55% of outdoor smog infiltration into bedrooms overnight',
-          envImpact: 'Improves thermal efficiency, reducing winter room heater electrical consumption by 15%',
+          healthImpact: 'Significantly curbs overnight infiltration of outdoor smog into sleeping areas',
+          envImpact: 'Improves home thermal insulation and lowers auxiliary room heating energy demand',
           difficulty: 'medium',
           urgency: 'this-week',
         },
       ],
       vulnerableGroupAlerts: {
         children: profile.hasKids
-          ? 'Children inhale up to 50% more air per kg of body weight than adults. Keep them indoors today and ensure school commute masks are snug.'
+          ? 'Children breathe more air per kg of body weight (+25% lung exposure factor). Keep play indoors during peak hours and ensure school commute masks fit snugly.'
           : null,
         seniors: profile.hasSenior
           ? 'Senior citizens with cardiovascular conditions should take prescribed inhalers/medications proactively and avoid morning balcony walks.'
