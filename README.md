@@ -1,16 +1,19 @@
 # 🌬️ VayuCare AI — Urban Atmospheric Health Intelligence
 
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-vayucare--ai.vercel.app-0ea5e9?style=for-the-badge&logo=vercel&logoColor=white)](https://vayucare-ai.vercel.app)
 [![CI Workflow](https://img.shields.io/badge/CI-Passing-10b981?style=for-the-badge&logo=githubactions&logoColor=white)](https://github.com/imamhusen-cg/vayucare-ai/actions)
 [![Automated Test Suites](https://img.shields.io/badge/Tests-62%2F62%20Passing%20(100%25)-10b981?style=for-the-badge&logo=vitest&logoColor=white)](https://github.com/imamhusen-cg/vayucare-ai)
 [![TypeScript Strict](https://img.shields.io/badge/TypeScript-100%25%20Strict-3178c6?style=for-the-badge&logo=typescript&logoColor=white)](https://github.com/imamhusen-cg/vayucare-ai)
 [![Performance & Caching](https://img.shields.io/badge/Efficiency-%3C2ms%20Cached%20LRU-f59e0b?style=for-the-badge&logo=fastapi&logoColor=white)](https://github.com/imamhusen-cg/vayucare-ai)
 [![AI Engine](https://img.shields.io/badge/Google%20Gemini-1.5%20Flash-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://aistudio.google.com/)
-[![Standard](https://img.shields.io/badge/Standard-CPCB%20IND--AQI-orange?style=for-the-badge)](https://cpcb.nic.nic.in/)
+[![Standard](https://img.shields.io/badge/Standard-CPCB%20IND--AQI-orange?style=for-the-badge)](https://cpcb.nic.in/)
 [![License](https://img.shields.io/badge/License-MIT-a855f7?style=for-the-badge)](LICENSE)
 
+> **🌐 Live Application:** **[https://vayucare-ai.vercel.app](https://vayucare-ai.vercel.app)**
+>
 > **A mission-critical GenAI atmospheric health platform designed for Indian urban families, commuters, and communities navigating severe winter smog, diurnal thermal inversion, and hazardous PM2.5 exposure.**
 
-Built with **React 18, Vite 5, Strict TypeScript, Tailwind CSS, Node.js/Express, Central Pollution Control Board (CPCB) telemetry via WAQI, and Google Gemini 1.5 Flash**.
+Built with **React 18, Vite 6, Strict TypeScript, Tailwind CSS, Node.js/Express 5, Central Pollution Control Board (CPCB) telemetry via WAQI, and Google Gemini 1.5 Flash**.
 
 
 ## 🔬 Scientific & Algorithmic Foundations
