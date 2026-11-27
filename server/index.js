@@ -1,6 +1,7 @@
 const path = require('path');
 require('dotenv').config({ path: path.resolve(__dirname, '.env') });
 const express = require('express');
+const helmet = require('helmet');
 const cors = require('cors');
 const compression = require('compression');
 const rateLimit = require('express-rate-limit');
@@ -20,6 +21,7 @@ app.use((req, res, next) => {
 });
 
 // Middleware
+app.use(helmet());
 app.use(compression());
 app.use(cors({
   origin: process.env.ALLOWED_ORIGIN || true,
