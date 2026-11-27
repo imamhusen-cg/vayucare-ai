@@ -21,7 +21,7 @@ app.use((req, res, next) => {
 });
 
 // Middleware
-app.use(helmet());
+app.use(helmet({ frameguard: { action: 'deny' } }));
 app.use(compression());
 app.use(cors({
   origin: process.env.ALLOWED_ORIGIN || true,
